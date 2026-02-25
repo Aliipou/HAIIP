@@ -1,0 +1,47 @@
+version: "3.11"
+
+# Development overrides — hot reload, volume mounts, SQLite
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      - ./haiip:/app/haiip:rw
+      - ./tests:/app/tests:rw
+      - ./artifacts:/app/artifacts:rw
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - DATABASE_URL=sqlite+aiosqlite:///./haiip_dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    command: uvicorn haiip.api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      target: development
+    volumes:
+      - ./haiip:/app/haiip:rw
+      - ./artifacts:/app/artifacts:rw
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=sqlite+aiosqlite:///./haiip_dev.db
+    command: celery -A haiip.workers.tasks worker --loglevel=info --concurrency=2
+
+  dashboard:
+    build:
+      target: development
+    volumes:
+      - ./haiip/dashboard:/app/haiip/dashboard:rw
+    environment:
+      - API_BASE_URL=http://api:8000
+    command: streamlit run haiip/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+
+  db:
+    # Skip PostgreSQL in dev — SQLite is used instead
+    profiles:
+      - postgres-dev

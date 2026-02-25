@@ -1,0 +1,57 @@
+# Secrets — NEVER commit
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Data / models
+data_cache/
+artifacts/
+*.joblib
+*.pkl
+*.parquet
+*.h5
+*.db
+*.sqlite3
+haiip_dev.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Notebooks (outputs only)
+notebooks/**/*.ipynb
+!notebooks/README.md

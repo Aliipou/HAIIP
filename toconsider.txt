@@ -1,0 +1,58 @@
+خوبه. حالا می‌دونم دقیقاً چی وجود داره. بذار صادقانه بچینم — نه فقط یه لیست، بلکه **کدوم dataset برای کدوم بخش HAIIP، چرا، و چطور استفاده کنی**.
+
+---
+
+## لایه ۱ — Predictive Maintenance (Core AI)
+
+**AI4I 2020 — بهترین نقطه شروع**
+شامل ۱۰,۰۰۰ داده با ۱۴ feature: air temperature، process temperature، rotational speed، torque، tool wear، و ۵ نوع failure mode مجزا (TWF، HDF، PWF، OSF، RNF). چرا این؟ چون synthetic اما دقیقاً طراحی شده برای همین use case — همان پروژه AI4I که اسم NextIndustriAI از آن الهام گرفته. لینک مستقیم: `archive.ics.uci.edu/dataset/601` — CC BY 4.0، قانونی.
+
+**NASA CMAPSS — برای RUL و degradation**
+موتور از حالت نرمال شروع می‌کنه، در جایی fault پیدا می‌کنه، و تا failure ادامه می‌ده. هدف: پیش‌بینی تعداد cycle باقی‌مانده قبل از خرابی. لینک دانلود مستقیم: `phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip`
+
+---
+
+## لایه ۲ — Bearing/Vibration (نزدیک‌ترین به کارخانه واقعی)
+
+**CWRU Bearing Dataset — استاندارد صنعتی**
+پرارجاع‌ترین benchmark در fault diagnosis. آزمایشگاه ۲ hp با bearing‌های SKF. fault‌های با اندازه‌های مختلف. داده از accelerometer‌های drive-end و fan-end با sampling rate 12kHz و 48kHz.
+
+**XJTU-SY — run-to-failure کامل**
+داده run-to-failure از ۱۵ bearing تحت degradation تسریع‌شده. سه شرایط کاری متفاوت. vibration افقی و عمودی با ۲۵.۶kHz. این برای drift detection و RUL خیلی قوی‌تر از CWRU هست.
+
+**NASA IMS Bearings**
+چهار bearing به صورت مداوم تا failure تحت load شعاعی زیاد. vibration هر ۱۰ دقیقه یه snapshot یک‌ثانیه‌ای با ۲۰kHz. لینک: `data.nasa.gov/dataset/ims-bearings`
+
+---
+
+## لایه ۳ — Anomaly Detection (بدون label — research-grade)
+
+**MIMII Dataset (Hitachi) — خفن‌ترین برای anomaly detection**
+صدای ماشین‌های صنعتی واقعی: valve، pump، fan، slide rail. هر ماشین چند مدل مختلف دارد. normal sound (5000-10000 ثانیه) و anomalous sound (~1000 ثانیه) با noise واقعی کارخانه mix شده. چرا این برای HAIIP؟ چون unsupervised هست — یعنی فقط normal داری، باید anomaly detect کنی. این دقیقاً سناریوی SME واقعی است — کارخانه failure label نداره. دانلود از Zenodo: `zenodo.org/record/3384388`
+
+---
+
+## استراتژی ترکیب — چطور استفاده کنی
+
+| بخش HAIIP | Dataset | چرا |
+|---|---|---|
+| Predictive Maintenance | AI4I 2020 | ساده، labeled، شروع سریع |
+| RUL Prediction | NASA CMAPSS | degradation curve واقعی |
+| Vibration Analysis | CWRU یا XJTU-SY | نزدیک به ماشین‌های Nordic SME |
+| Anomaly Detection | MIMII | unsupervised — سناریوی واقعی |
+| Drift Detection | XJTU-SY (multi-condition) | سه شرایط مختلف = drift طبیعی |
+
+---
+
+## یه نکته مهم برای ۳ روز آینده
+
+**از AI4I 2020 شروع کن** — یه خط `pip install ucimlrepo` و با Python مستقیم دانلود می‌شه:
+
+```python
+from ucimlrepo import fetch_ucirepo
+dataset = fetch_ucirepo(id=601)
+X = dataset.data.features
+y = dataset.data.targets
+```
+
+بعد CWRU بگذار برای vibration visualization توی demo. MIMII رو در architecture diagram ذکر کن حتی اگر وقت نکردی باهاش کار کنی — نشون می‌ده که می‌دونی unsupervised learning چیه.
