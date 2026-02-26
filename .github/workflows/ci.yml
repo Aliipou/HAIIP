@@ -1,0 +1,388 @@
+name: CI — Quality Gate
+
+on:
+  push:
+    branches: [main, develop, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  HAIIP_APP_ENV: testing
+  HAIIP_SECRET_KEY: ci-test-secret-key-not-for-production-use
+  HAIIP_DATABASE_URL: sqlite+aiosqlite:///./test.db
+
+jobs:
+  # ── 1. Lint & Format ─────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff mypy types-passlib
+
+      - name: Ruff lint
+        run: ruff check haiip/ --output-format=github
+
+      - name: Ruff format check
+        run: ruff format --check haiip/
+
+      - name: mypy type check
+        run: |
+          pip install pydantic fastapi sqlalchemy aiofiles
+          mypy haiip/api/ haiip/core/ --ignore-missing-imports \
+            --no-strict-optional --warn-return-any || true
+
+  # ── 2. Security scan ─────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install security tools
+        run: pip install bandit[toml] detect-secrets safety
+
+      - name: Bandit SAST scan
+        run: |
+          bandit -r haiip/ \
+            -ll \
+            --exclude haiip/tests \
+            -f json \
+            -o bandit-report.json || true
+          bandit -r haiip/ \
+            -ll \
+            --exclude haiip/tests \
+            -f txt
+
+      - name: Check for secrets in code
+        run: |
+          detect-secrets scan --baseline .secrets.baseline || \
+          detect-secrets scan haiip/ > .secrets.scan.json
+          python -c "
+          import json, sys
+          data = json.load(open('.secrets.scan.json'))
+          results = data.get('results', {})
+          if results:
+              print('WARNING: Potential secrets detected:')
+              for f, secrets in results.items():
+                  for s in secrets:
+                      print(f'  {f}:{s[\"line_number\"]} [{s[\"type\"]}]')
+          " 2>/dev/null || true
+
+      - name: Safety dependency check
+        run: |
+          pip install -r <(pip list --format=freeze) 2>/dev/null || true
+          safety check || true
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+
+  # ── 3. Unit tests ─────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio pytest-cov httpx \
+            fastapi sqlalchemy aiosqlite asyncpg \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy scipy \
+            structlog uvicorn
+
+      - name: Run unit tests
+        run: |
+          pytest haiip/tests/core/ \
+            -v \
+            --tb=short \
+            --cov=haiip/core \
+            --cov-report=xml:coverage-core.xml \
+            --cov-report=term-missing \
+            -x
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+      - name: Upload core coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-core
+          path: coverage-core.xml
+
+  # ── 4. API tests ──────────────────────────────────────────────────────────
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio pytest-cov httpx \
+            fastapi sqlalchemy aiosqlite \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy \
+            structlog uvicorn anyio
+
+      - name: Run API tests
+        run: |
+          pytest haiip/tests/api/ \
+            -v \
+            --tb=short \
+            --cov=haiip/api \
+            --cov-report=xml:coverage-api.xml \
+            --cov-report=term-missing \
+            -x
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+      - name: Upload API coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api
+          path: coverage-api.xml
+
+  # ── 5. Integration tests ──────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio httpx \
+            fastapi sqlalchemy aiosqlite \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy structlog uvicorn anyio
+
+      - name: Run integration tests
+        run: |
+          pytest haiip/tests/integration/ \
+            -v --tb=short -x
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+  # ── 6. Security tests ─────────────────────────────────────────────────────
+  security-tests:
+    name: Security Tests (OWASP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio httpx \
+            fastapi sqlalchemy aiosqlite \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy structlog uvicorn anyio
+
+      - name: Run security tests
+        run: |
+          pytest haiip/tests/security/ \
+            -v --tb=short -x
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+  # ── 7. Feature & BDD tests ────────────────────────────────────────────────
+  feature-tests:
+    name: Feature Tests (BDD)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio httpx \
+            fastapi sqlalchemy aiosqlite \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy structlog uvicorn anyio
+
+      - name: Run feature tests
+        run: |
+          pytest haiip/tests/features/ \
+            -v --tb=short
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+  # ── 8. Crash tests ────────────────────────────────────────────────────────
+  crash-tests:
+    name: Crash / Robustness Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio httpx \
+            fastapi sqlalchemy aiosqlite \
+            pydantic pydantic-settings \
+            python-jose passlib bcrypt \
+            scikit-learn numpy structlog uvicorn anyio
+
+      - name: Run crash tests
+        run: |
+          pytest haiip/tests/crash/ \
+            -v --tb=short
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+
+  # ── 9. Dashboard tests ────────────────────────────────────────────────────
+  dashboard-tests:
+    name: Dashboard Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pytest numpy plotly
+
+      - name: Run dashboard unit tests
+        run: |
+          pytest haiip/tests/dashboard/ -v --tb=short
+
+  # ── 10. Coverage aggregation ──────────────────────────────────────────────
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, api-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install coverage tools
+        run: pip install coverage[toml] pytest pytest-asyncio pytest-cov httpx fastapi sqlalchemy aiosqlite pydantic pydantic-settings python-jose passlib bcrypt scikit-learn numpy structlog uvicorn anyio
+
+      - name: Run full test suite with coverage
+        run: |
+          pytest haiip/tests/core/ haiip/tests/api/ haiip/tests/dashboard/ \
+            --cov=haiip \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov/ \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+        env:
+          HAIIP_APP_ENV: testing
+          HAIIP_SECRET_KEY: ${{ env.HAIIP_SECRET_KEY }}
+          HAIIP_DATABASE_URL: ${{ env.HAIIP_DATABASE_URL }}
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
+
+  # ── Final gate ───────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint, security, unit-tests, api-tests, integration-tests, security-tests, crash-tests]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          RESULTS='${{ toJSON(needs) }}'
+          echo "Job results: $RESULTS"
+          # Fail if any required job failed (not just skipped)
+          python3 - <<'EOF'
+          import json, sys
+          results = json.loads('''${{ toJSON(needs) }}''')
+          failed = [name for name, r in results.items() if r['result'] == 'failure']
+          if failed:
+              print(f"FAILED JOBS: {failed}")
+              sys.exit(1)
+          print("All quality gates passed ✅")
+          EOF

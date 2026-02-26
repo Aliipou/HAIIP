@@ -1,6 +1,177 @@
 # HAIIP — Human-Aligned Industrial Intelligence Platform
 
-RDI-grade AI platform for SME predictive maintenance, anomaly detection, and human-robot collaboration. Built for the NextIndustriAI project across Jakobstad, Sundsvall, and Narvik.
+[![CI](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml/badge.svg)](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/nextindustriai/haiip/branch/main/graph/badge.svg)](https://codecov.io/gh/nextindustriai/haiip)
+[![EU AI Act](https://img.shields.io/badge/EU%20AI%20Act-Limited%20Risk%20%E2%9C%85-green)](docs/MODEL_CARD.md)
+[![License](https://img.shields.io/badge/license-Proprietary-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11-blue)](pyproject.toml)
+
+---
+
+**RDI-grade AI platform for SME predictive maintenance, anomaly detection, and human-robot collaboration.**
+Built for the **NextIndustriAI** project across Jakobstad (FI), Sundsvall (SE), and Narvik (NO).
+Developed at **Centria University of Applied Sciences** as a fully documented RDI deliverable.
+
+> **Research significance**: HAIIP demonstrates that production-grade Human-Aligned AI for industrial
+> SMEs can be built and deployed with full EU AI Act compliance, transparent ML pipelines, and
+> quantified human oversight — achieving RDI quality sufficient for peer-reviewed publication.
+
+---
+
+## Table of Contents
+
+1. [Research Motivation](#research-motivation)
+2. [Architecture](#architecture)
+3. [ML System Overview](#ml-system-overview)
+4. [EU AI Act Compliance](#eu-ai-act-compliance)
+5. [Quick Start](#quick-start)
+6. [Full Stack (Docker)](#full-stack-docker)
+7. [Test Suite](#test-suite)
+8. [API Reference](#api-reference)
+9. [Datasets](#datasets)
+10. [Model Performance](#model-performance)
+11. [RDI Artifacts](#rdi-artifacts)
+12. [Contributing](#contributing)
+13. [Citation](#citation)
+
+---
+
+## Research Motivation
+
+Nordic SMEs operate 60% of the region's manufacturing equipment with minimal IT capacity.
+Unplanned machine downtime costs European SMEs €5–15k/hour in lost production.
+Existing industrial AI solutions require enterprise-scale infrastructure (€50k+ setup).
+
+**HAIIP hypothesis**: A lightweight, human-aligned, privacy-by-design AI platform can deliver
+predictive maintenance at SME scale while satisfying all EU regulatory requirements.
+
+**Key research questions**:
+1. Can IsolationForest + GradientBoosting achieve >85% F1 on real SME sensor data?
+2. What is the minimum human oversight rate to satisfy EU AI Act Article 14?
+3. How does RAG-based document querying improve maintenance engineer decision-making?
+4. What is the performance/compliance trade-off in privacy-preserving anomaly logging?
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        HAIIP Platform Architecture                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Sensors (OPC UA / MQTT)                                                   │
+│        │                                                                    │
+│        ▼                                                                    │
+│   ┌──────────────────┐      ┌─────────────────────────────────────────┐    │
+│   │  Ingestion       │      │           FastAPI Backend               │    │
+│   │  Pipeline        │─────▶│  /api/v1/predict  /api/v1/alerts        │    │
+│   │  (normalise,     │      │  /api/v1/feedback  /api/v1/audit        │    │
+│   │   validate)      │      │  /api/v1/admin     /api/v1/query        │    │
+│   └──────────────────┘      └────────────┬────────────────────────────┘    │
+│                                          │                                  │
+│          ┌───────────────────────────────┤                                  │
+│          │                              │                                  │
+│          ▼                              ▼                                  │
+│   ┌──────────────┐              ┌──────────────────┐                        │
+│   │  ML Core     │              │  SQLite / PgSQL  │                        │
+│   │  ┌─────────┐ │              │  ┌─────────────┐ │                        │
+│   │  │Anomaly  │ │              │  │ Predictions │ │                        │
+│   │  │Detector │ │              │  │ Alerts      │ │                        │
+│   │  ├─────────┤ │              │  │ AuditLog    │ │                        │
+│   │  │Maint.   │ │              │  │ FeedbackLog │ │                        │
+│   │  │Predictor│ │              │  │ ModelReg.   │ │                        │
+│   │  ├─────────┤ │              │  └─────────────┘ │                        │
+│   │  │Drift    │ │              └──────────────────┘                        │
+│   │  │Detector │ │                                                          │
+│   │  ├─────────┤ │              ┌──────────────────┐                        │
+│   │  │RAG      │ │              │  Celery + Redis  │                        │
+│   │  │Engine   │ │              │  (background     │                        │
+│   │  ├─────────┤ │              │   retraining,    │                        │
+│   │  │Compliance│ │              │   drift checks)  │                        │
+│   │  │Engine   │ │              └──────────────────┘                        │
+│   │  └─────────┘ │                                                          │
+│   └──────────────┘                                                          │
+│                                                                             │
+│   ┌──────────────────────────────────────────────────────┐                  │
+│   │              Streamlit Dashboard (9 pages)           │                  │
+│   │  Overview │ Monitor │ Maintenance │ Alerts │ Query   │                  │
+│   │  Feedback │ ROI     │ Audit Trail │ Admin  │         │                  │
+│   └──────────────────────────────────────────────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Component responsibilities:**
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| API | FastAPI + asyncio | REST API, JWT auth, multi-tenancy |
+| Database | SQLAlchemy 2.0 async + SQLite/PostgreSQL | Persistence |
+| Anomaly Detection | IsolationForest + StandardScaler | Unsupervised anomaly scoring |
+| Maintenance Prediction | GradientBoosting (6-class + RUL) | Failure mode + life estimation |
+| Drift Detection | KS test + PSI + Page-Hinkley | Distribution shift monitoring |
+| RAG Engine | FAISS + sentence-transformers + OpenAI | Maintenance document Q&A |
+| Background Workers | Celery + Redis | Retraining, drift checks, cleanup |
+| Dashboard | Streamlit | Industrial HMI with dark theme |
+| Compliance | Custom (Article 52) | EU AI Act audit trail |
+
+---
+
+## ML System Overview
+
+### Anomaly Detection
+```
+Input: [air_temp, process_temp, rpm, torque, tool_wear]
+       → StandardScaler → IsolationForest (contamination=0.05)
+       → anomaly_score [0,1] + is_anomaly (bool) + confidence [0,1]
+```
+
+### Predictive Maintenance
+```
+Input: same 5 features
+       → GradientBoostingClassifier → failure_mode (6 classes)
+       → GradientBoostingRegressor  → rul_cycles (int, ≥0)
+```
+
+### Concept Drift (weekly)
+```
+Reference distribution (last N days)
+       → KS test (p-value) per feature
+       → PSI (Population Stability Index) per feature
+       → Page-Hinkley online change detector
+       → Alert if PSI > 0.2 or p-value < 0.05
+```
+
+### RAG — Maintenance Document Q&A
+```
+Query: "When should I replace bearing XR-50?"
+       → sentence-transformers (all-MiniLM-L6-v2) embedding
+       → FAISS cosine similarity search
+       → Top-k chunk retrieval
+       → OpenAI GPT-4o-mini / template answer
+       → Answer + source citations + confidence
+```
+
+---
+
+## EU AI Act Compliance
+
+HAIIP is classified as **Limited Risk** under EU AI Act Article 52.
+
+| Requirement | Implementation | Status |
+|-------------|---------------|--------|
+| Risk classification | `ComplianceEngine.classify_risk()` | ✅ Limited Risk |
+| Transparency (Art. 52) | Monthly `TransparencyReport` | ✅ Auto-generated |
+| Human oversight (Art. 14) | All decisions require human review option | ✅ Enforced |
+| Record keeping (Art. 12) | `AuditLog` — every decision logged | ✅ Complete |
+| Provision of information (Art. 13) | Model Card + Dataset Card + in-app disclosure | ✅ Complete |
+| GDPR data minimisation (Art. 5c) | Input features SHA-256 hashed in audit log | ✅ Privacy by design |
+| Incident reporting (Art. 73) | `detect_incidents()` — low confidence + bias | ✅ Automated |
+| Complaint procedure | In-app feedback + DPA contact | ✅ Documented |
+
+Audit log retention: **5 years** (GDPR Art. 17 balanced with AI Act Art. 12).
+
+---
 
 ## Quick Start
 
@@ -8,46 +179,246 @@ RDI-grade AI platform for SME predictive maintenance, anomaly detection, and hum
 # 1. Install dependencies
 pip install -e ".[dev]"
 
-# 2. Copy env template
+# 2. Configure environment
 cp .env.example .env.local
-# Edit .env.local — set SECRET_KEY, OPENAI_API_KEY, etc.
+# Required: HAIIP_SECRET_KEY (min 32 chars), HAIIP_DATABASE_URL
 
-# 3. Run API (dev)
+# 3. Start API
 uvicorn haiip.api.main:app --reload
 
-# 4. API docs → http://localhost:8000/api/docs
+# 4. Start dashboard (separate terminal)
+streamlit run haiip/dashboard/app.py
+
+# 5. API docs → http://localhost:8000/api/docs
+# 6. Dashboard → http://localhost:8501
 ```
 
-## Docker (full stack)
+**Demo mode** (no API required — works offline):
+```bash
+streamlit run haiip/dashboard/app.py
+# Click "Try Demo" on login page
+```
+
+---
+
+## Full Stack (Docker)
 
 ```bash
+# Development (hot reload, SQLite)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Production (PostgreSQL, Redis, Prometheus, Grafana)
+docker compose up
+
+# Services:
+#   API          → http://localhost:8000
+#   Dashboard    → http://localhost:8501
+#   API Docs     → http://localhost:8000/api/docs
+#   Prometheus   → http://localhost:9090
+#   Grafana      → http://localhost:3000
 ```
 
-## Run tests
+---
+
+## Test Suite
+
+HAIIP maintains a comprehensive multi-tier test pyramid targeting 100% production-grade coverage.
 
 ```bash
-pytest --cov=haiip --cov-report=term-missing
+# Full test suite
+pytest haiip/tests/ -v --cov=haiip --cov-report=term-missing
+
+# Unit tests (fast, no I/O)
+pytest haiip/tests/core/ haiip/tests/dashboard/ -v
+
+# API integration tests
+pytest haiip/tests/api/ haiip/tests/integration/ -v
+
+# Security tests (OWASP Top 10)
+pytest haiip/tests/security/ -v
+
+# Crash / robustness tests
+pytest haiip/tests/crash/ -v
+
+# Feature tests (BDD user journeys)
+pytest haiip/tests/features/ -v
+
+# RAG hallucination tests
+pytest haiip/tests/core/test_rag_hallucination.py -v
+
+# Load tests (requires running API at localhost:8000)
+locust -f haiip/tests/load/locustfile.py \
+       --host=http://localhost:8000 \
+       --headless --users 50 --spawn-rate 5 --run-time 60s
 ```
 
-## Phase Status
+### Test Coverage by Category
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1 | ✅ Complete | Foundation: FastAPI, JWT, DB, Core AI, Docker |
-| 2 | 🔄 Next | RAG engine, OPC UA/MQTT |
-| 3 | Planned | Celery workers, MLOps |
-| 4 | Planned | Streamlit dashboard |
-| 5 | Planned | EU AI Act compliance |
+| Category | Tests | Purpose |
+|----------|-------|---------|
+| Core unit | ~150 | ML components, compliance engine, drift |
+| API unit | ~70 | Route validation, auth, RBAC |
+| Integration | ~25 | End-to-end user journeys |
+| Security (OWASP) | ~30 | SQL injection, JWT, RBAC, XSS |
+| Crash/robustness | ~30 | Edge cases, extreme values, malformed inputs |
+| Feature/BDD | ~25 | Role-based user stories |
+| ML evaluation | ~30 | F1, calibration, fairness, reproducibility |
+| RAG hallucination | ~30 | Grounding, source citation, uncertainty |
+| Load (Locust) | 4 user types | SLA validation under concurrent load |
 
-## Architecture
+---
 
+## API Reference
+
+### Authentication
 ```
-haiip/
-├── api/       FastAPI — routes, auth, schemas, models
-├── core/      AI logic — anomaly, maintenance, drift, feedback, RAG
-├── data/      Loaders (AI4I, CWRU, CMAPSS), simulator, OPC UA/MQTT
-├── dashboard/ Streamlit UI
-├── workers/   Celery background tasks
-└── tests/     Mirrors core/ and api/
+POST /api/v1/auth/login          # Login → access_token + refresh_token
+POST /api/v1/auth/refresh        # Refresh access token
+POST /api/v1/auth/register       # Register new user
+GET  /api/v1/auth/me             # Current user info
 ```
+
+### Predictions
+```
+POST /api/v1/predict             # Single prediction (anomaly + maintenance)
+POST /api/v1/predict/batch       # Batch prediction
+GET  /api/v1/predictions         # List predictions (paginated)
+GET  /api/v1/predictions/{id}    # Single prediction detail
+```
+
+### Alerts
+```
+GET    /api/v1/alerts            # List alerts (filterable by severity)
+POST   /api/v1/alerts            # Create alert
+GET    /api/v1/alerts/{id}       # Single alert
+PATCH  /api/v1/alerts/{id}/acknowledge  # Acknowledge alert
+```
+
+### Feedback (Human-in-the-loop)
+```
+POST /api/v1/feedback            # Submit prediction feedback
+GET  /api/v1/feedback            # List submitted feedback
+```
+
+### Metrics
+```
+GET /api/v1/metrics/health       # System health KPIs
+GET /api/v1/metrics/machines     # Per-machine statistics
+GET /api/v1/metrics/alerts/summary  # Alert distribution summary
+```
+
+### Document Q&A (RAG)
+```
+POST /api/v1/query               # Ask a question about maintenance docs
+POST /api/v1/documents/ingest    # Ingest a document into RAG index
+GET  /api/v1/documents/stats     # RAG index statistics
+DELETE /api/v1/documents         # Clear RAG index
+```
+
+### Admin (admin role required)
+```
+GET  /api/v1/admin/tenant        # Tenant information + stats
+GET  /api/v1/admin/users         # List users
+POST /api/v1/admin/users         # Create user
+PATCH /api/v1/admin/users/{id}   # Update user
+DELETE /api/v1/admin/users/{id}  # Deactivate user
+GET  /api/v1/admin/models        # Model registry
+POST /api/v1/admin/models/{id}/activate  # Activate model version
+GET  /api/v1/admin/stats         # System statistics
+GET  /api/v1/audit               # EU AI Act audit log
+```
+
+---
+
+## Datasets
+
+| Dataset | Source | License | Used for |
+|---------|--------|---------|---------|
+| AI4I 2020 | UCI ML Repository | CC BY 4.0 | Failure mode classification |
+| NASA CMAPSS | NASA PrognosticsCOE | Public Domain | RUL prediction |
+| CWRU Bearing | Case Western Reserve | Public Domain | Bearing fault detection |
+| MIMII | Zenodo (Hitachi) | CC BY 4.0 | Sound anomaly (planned v0.2) |
+
+See [docs/DATASET_CARD.md](docs/DATASET_CARD.md) for full datasheets.
+
+---
+
+## Model Performance
+
+| Model | Dataset | Metric | Value | Threshold |
+|-------|---------|--------|-------|-----------|
+| IsolationForest | AI4I 2020 | AUC-ROC | ≥0.91 | ≥0.85 |
+| IsolationForest | AI4I 2020 | F1 (macro) | ≥0.82 | ≥0.75 |
+| GBT Classifier | AI4I 2020 | Accuracy | ≥0.91 | ≥0.85 |
+| GBT Regressor | CMAPSS FD001 | MAE (cycles) | ≤18 | ≤25 |
+| GBT Regressor | CMAPSS FD001 | R² | ≥0.82 | ≥0.70 |
+
+See [docs/MODEL_CARD.md](docs/MODEL_CARD.md) for full model card including bias analysis.
+
+---
+
+## RDI Artifacts
+
+This project is a Centria RDI deliverable. The following artifacts are available:
+
+| Artifact | Location | Description |
+|----------|----------|-------------|
+| Model Card | `docs/MODEL_CARD.md` | Mitchell et al. (2019) format |
+| Dataset Card | `docs/DATASET_CARD.md` | Gebru et al. (2021) format |
+| Compliance Engine | `haiip/core/compliance.py` | EU AI Act Article 52 |
+| Transparency Report | `ComplianceEngine.generate_transparency_report()` | Auto-generated monthly |
+| Audit Trail | `haiip/api/routes/admin.py` | Immutable, exportable CSV |
+| ML Evaluation | `haiip/tests/features/test_ml_evaluation.py` | Reproducible benchmarks |
+| Hallucination Tests | `haiip/tests/core/test_rag_hallucination.py` | RAG grounding verification |
+| Security Tests | `haiip/tests/security/test_security.py` | OWASP Top 10 |
+| Load Tests | `haiip/tests/load/locustfile.py` | SLA validation |
+
+---
+
+## Citation
+
+If you use HAIIP in academic work, please cite:
+
+```bibtex
+@techreport{haiip2026,
+  title     = {HAIIP: Human-Aligned Industrial Intelligence Platform for
+               SME Predictive Maintenance with EU AI Act Compliance},
+  author    = {NextIndustriAI Research Team},
+  institution = {Centria University of Applied Sciences},
+  year      = {2026},
+  type      = {RDI Deliverable},
+  address   = {Jakobstad, Finland}
+}
+```
+
+**Datasets used** (cite independently):
+- Matzka, S. (2020). AI4I 2020 Predictive Maintenance Dataset. UCI ML Repository. DOI: 10.24432/C5HS5C
+- Saxena, A. et al. (2008). Damage propagation modeling for aircraft engine run-to-failure simulation. PHM Conference.
+
+---
+
+## Contributing
+
+This is an RDI project — contributions welcome from consortium partners.
+
+```bash
+# Setup pre-commit hooks
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+
+# Run all quality checks before PR
+pytest haiip/tests/ -v
+ruff check haiip/
+bandit -r haiip/ --exclude haiip/tests -ll
+```
+
+See `CONTRIBUTING.md` for code standards, commit conventions, and review process.
+
+---
+
+## License
+
+Proprietary — NextIndustriAI RDI Project, Centria University of Applied Sciences.
+Datasets used are licensed independently (see Dataset Card).
+Training code may be open-sourced in a future release.

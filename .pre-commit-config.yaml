@@ -1,0 +1,52 @@
+repos:
+  # ── Fast Python linting & formatting ─────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # ── Security: detect hardcoded secrets ───────────────────────────────────
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: |
+          (?x)^(
+            .*\.example|
+            .*\.md|
+            haiip/tests/.*
+          )$
+
+  # ── Standard file hygiene ─────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: ".*\\.ipynb$"
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+      - id: debug-statements
+        language_version: python3
+
+  # ── Security SAST ─────────────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args: ["-ll", "--exclude", "haiip/tests"]
+        files: ^haiip/(?!tests/)
+
+  # ── Commit message convention ─────────────────────────────────────────────
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.25.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

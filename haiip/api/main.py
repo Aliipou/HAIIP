@@ -26,7 +26,7 @@ from haiip.api.models import (  # noqa: F401 — imported for side-effect (metad
     Tenant,
     User,
 )
-from haiip.api.routes import alerts, auth, documents, feedback, metrics, predict
+from haiip.api.routes import admin, alerts, auth, documents, feedback, metrics, predict
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -120,6 +120,7 @@ def create_app() -> FastAPI:
     application.include_router(metrics.router, prefix=prefix, tags=["metrics"])
     application.include_router(documents.router, prefix=prefix, tags=["documents"])
     application.include_router(feedback.router, prefix=prefix, tags=["feedback"])
+    application.include_router(admin.router, prefix=prefix, tags=["admin"])
 
     # ── Health check ──────────────────────────────────────────────────────────
     @application.get("/health", include_in_schema=False)
