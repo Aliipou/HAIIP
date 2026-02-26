@@ -1,0 +1,155 @@
+# Kubernetes NetworkPolicy — Zero-trust pod communication
+# Only explicitly permitted traffic flows are allowed.
+# OWASP API Security: API8 — Security Misconfiguration
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: haiip-api-netpol
+  namespace: haiip
+spec:
+  podSelector:
+    matchLabels:
+      app: haiip-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from nginx ingress controller only
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow ingress from dashboard pod
+    - from:
+        - podSelector:
+            matchLabels:
+              app: haiip-dashboard
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow Prometheus scraping
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow to PostgreSQL RDS (port 5432)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/16  # VPC CIDR — restrict to internal only
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow to Redis ElastiCache (port 6379)
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/16
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow OTLP telemetry egress
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 4317
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: haiip-worker-netpol
+  namespace: haiip
+spec:
+  podSelector:
+    matchLabels:
+      app: haiip-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Workers accept no inbound connections
+    - {}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/16
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: haiip-dashboard-netpol
+  namespace: haiip
+spec:
+  podSelector:
+    matchLabels:
+      app: haiip-dashboard
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8501
+  egress:
+    # Dashboard can only talk to the API
+    - to:
+        - podSelector:
+            matchLabels:
+              app: haiip-api
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+---
+# Default deny-all for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: haiip
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

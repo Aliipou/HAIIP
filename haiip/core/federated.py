@@ -185,10 +185,26 @@ class FederatedNode:
         self,
         global_params: dict[str, Any] | None,
         local_epochs: int = 3,
+        dp_epsilon: float | None = None,
+        dp_delta: float = 1e-5,
     ) -> dict[str, Any]:
         """Train locally using global params as initialisation.
 
-        Returns weight delta dict (simulated as model params).
+        Returns weight delta dict (simulated as model params), optionally
+        protected with Differential Privacy (Gaussian mechanism).
+
+        Args:
+            global_params: Aggregated global parameters from server
+            local_epochs:  Local training epochs
+            dp_epsilon:    DP privacy budget ε (None = no DP).
+                           Lower ε → stronger privacy but more noise.
+                           Recommended range: 0.1–10.0
+            dp_delta:      DP failure probability δ (default 1e-5)
+
+        DP implementation (Gaussian mechanism — Dwork & Roth, 2014):
+            sensitivity = max gradient L2 norm (approximated as 1.0 for GBT)
+            σ = sensitivity × √(2 ln(1.25/δ)) / ε
+            Each feature importance gets Gaussian(0, σ) noise added.
         """
         # In a real deployment this would be gradient updates.
         # Here we train a fresh GBT using global hyperparameters as init.
@@ -202,7 +218,13 @@ class FederatedNode:
             random_state=42,
         )
         self._local_model.fit(self._X, self._y)
-        return self._extract_params()
+        params = self._extract_params()
+
+        # ── Differential Privacy: add Gaussian noise to feature importances ──
+        if dp_epsilon is not None and dp_epsilon > 0:
+            params = self._apply_dp_noise(params, dp_epsilon, dp_delta)
+
+        return params
 
     def evaluate(self) -> tuple[float, float]:
         """Return (f1, cross_entropy_proxy) on local data."""
@@ -218,6 +240,34 @@ class FederatedNode:
             + (1 - self._y) * np.log(1 - y_prob + eps)
         ))
         return f1, loss
+
+    def _apply_dp_noise(
+        self,
+        params: dict[str, Any],
+        epsilon: float,
+        delta: float,
+    ) -> dict[str, Any]:
+        """Apply Gaussian mechanism to feature importances (Dwork & Roth, 2014).
+
+        σ = l2_sensitivity × √(2 ln(1.25 / δ)) / ε
+        Sensitivity = 1.0 (L2 clip assumed for GBT importances ∈ [0,1])
+        """
+        import math
+        sensitivity = 1.0
+        sigma       = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / epsilon
+
+        importances = params.get("feature_importances", [])
+        if importances:
+            noisy = [
+                float(np.clip(v + self.rng.normal(0.0, sigma), 0.0, 1.0))
+                for v in importances
+            ]
+            # Re-normalise so importances sum to ≈1
+            total = sum(noisy) or 1.0
+            params = {**params, "feature_importances": [v / total for v in noisy]}
+
+        logger.debug("dp_noise_applied", extra={"sigma": round(sigma, 4), "epsilon": epsilon})
+        return params
 
     def _extract_params(self) -> dict[str, Any]:
         """Simulate extracting weight deltas as a serialisable dict."""
@@ -378,10 +428,23 @@ class FederatedLearner:
         profiles:               list[NodeProfile] | None = None,
         convergence_threshold:  float = 0.002,
         random_state:           int = 42,
+        dp_epsilon:             float | None = None,
+        dp_delta:               float = 1e-5,
     ) -> None:
+        """
+        Args:
+            profiles:              Per-node configuration (defaults to 3 Nordic SME nodes)
+            convergence_threshold: Stop when F1 improvement < this value
+            random_state:          Reproducibility seed
+            dp_epsilon:            Differential privacy budget ε (None = disabled).
+                                   Lower = stronger privacy (recommended: 1.0–5.0).
+            dp_delta:              DP failure probability δ (default 1e-5)
+        """
         self.profiles              = profiles or self.DEFAULT_PROFILES
         self.convergence_threshold = convergence_threshold
         self.random_state          = random_state
+        self.dp_epsilon            = dp_epsilon
+        self.dp_delta              = dp_delta
 
     def run(
         self,
@@ -431,6 +494,8 @@ class FederatedLearner:
                 params = node.local_train(
                     global_params=server._global_params,
                     local_epochs=local_epochs,
+                    dp_epsilon=self.dp_epsilon,
+                    dp_delta=self.dp_delta,
                 )
                 node_params_list.append(params)
                 f1, loss = node.evaluate()

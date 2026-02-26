@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from haiip.api.auth import TokenError, decode_access_token
 from haiip.api.database import get_db
 from haiip.api.models import User
+from haiip.api.token_blacklist import blacklist
 
 _bearer = HTTPBearer(auto_error=True)
 
@@ -48,7 +49,12 @@ async def get_current_user(
         payload = decode_access_token(token)
         user_id: str = payload["sub"]
         tenant_id: str = payload["tenant_id"]
+        jti: str = payload.get("jti", "")
     except (TokenError, KeyError):
+        raise credentials_exception
+
+    # ── Token revocation check ─────────────────────────────────────────────────
+    if jti and await blacklist.is_revoked(jti):
         raise credentials_exception
 
     result = await db.execute(
