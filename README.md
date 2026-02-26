@@ -23,16 +23,18 @@ Developed at **Centria University of Applied Sciences** as a fully documented RD
 1. [Research Motivation](#research-motivation)
 2. [Architecture](#architecture)
 3. [ML System Overview](#ml-system-overview)
-4. [EU AI Act Compliance](#eu-ai-act-compliance)
-5. [Quick Start](#quick-start)
-6. [Full Stack (Docker)](#full-stack-docker)
-7. [Test Suite](#test-suite)
-8. [API Reference](#api-reference)
-9. [Datasets](#datasets)
-10. [Model Performance](#model-performance)
-11. [RDI Artifacts](#rdi-artifacts)
-12. [Contributing](#contributing)
-13. [Citation](#citation)
+4. [Phase 6 — Economic AI, Federated Learning & Human Oversight](#phase-6--economic-ai-federated-learning--human-oversight)
+5. [EU AI Act Compliance](#eu-ai-act-compliance)
+6. [Quick Start](#quick-start)
+7. [Full Stack (Docker)](#full-stack-docker)
+8. [Cloud Deployment (Kubernetes)](#cloud-deployment-kubernetes)
+9. [Test Suite](#test-suite)
+10. [API Reference](#api-reference)
+11. [Datasets](#datasets)
+12. [Model Performance](#model-performance)
+13. [RDI Artifacts](#rdi-artifacts)
+14. [Contributing](#contributing)
+15. [Citation](#citation)
 
 ---
 
@@ -168,6 +170,84 @@ Query: "When should I replace bearing XR-50?"
        → Answer + source citations + confidence
 ```
 
+### Agentic RAG — ReAct Tool-Calling Agent (Phase 5)
+```
+Query: "Is machine M-003 about to fail?"
+       → Intent classification → tool plan
+       → search_knowledge_base()    (RAG over manuals)
+       → run_anomaly_detection()    (real-time sensor score)
+       → calculate_rul()            (remaining useful life)
+       → assess_compliance()        (EU AI Act Article 52)
+       → Synthesised answer + tool trace + confidence
+       → requires_human_review flag (Article 14)
+```
+
+---
+
+## Phase 6 — Economic AI, Federated Learning & Human Oversight
+
+> **Research-grade features** — validated, tested, not production-hardened.
+> Full scope in [docs/EXPERIMENTAL_BRANCH.md](docs/EXPERIMENTAL_BRANCH.md).
+
+### Economic Decision Engine
+Transforms ML outputs into cost-optimal maintenance decisions using Expected Loss Minimization:
+
+```
+E[Cost_wait]   = P(failure) × C_downtime × safety_factor
+E[Cost_action] = P(no_failure) × C_false_positive + C_maintenance
+Net_benefit    = E[Cost_wait] − E[Cost_action]
+
+Decision → REPAIR_NOW | SCHEDULE | MONITOR | IGNORE
+```
+
+Nordic SME defaults: `C_downtime = €4,000/failure`, `C_maintenance = €590/event`
+
+### Federated SME Learning (FedAvg)
+Privacy-preserving collaborative learning across 3 Nordic manufacturing sites:
+
+| Node | Country | Industry | Dataset size |
+|------|---------|----------|-------------|
+| SME_FI | Finland | Paper mill (vibration) | 800 samples |
+| SME_SE | Sweden | Automotive stamping | 1,200 samples |
+| SME_NO | Norway | Offshore pumps | 600 samples |
+
+**Privacy**: Only weight deltas transmitted — no raw sensor data leaves site boundary.
+**Quality**: Federated F1 within 15% of centralized baseline (validated).
+
+### Human Oversight Quantification (EU AI Act Art. 14)
+
+| Metric | Formula | Target |
+|--------|---------|--------|
+| HIR (Intervention Rate) | `reviewed / decisions` | 0.05–0.15 |
+| HOG (Override Gain) | `F1(corrected) − F1(ai_only)` | > 0.02 |
+| TCS (Trust Calibration) | `1 − ECE` (Guo et al., 2017) | ≥ 0.80 |
+
+### Observability — Per-Prediction Cost Model
+```
+compute_cost = inference_ms × (GPU_rate / 3_600_000)
+avoided_cost = P(failure) × C_downtime − C_maintenance   [if P > 0.5]
+net_value    = avoided_cost − compute_cost
+
+At SME scale (t3.medium, eu-north-1):
+  Cost/prediction: ~€0.000007
+  ROI ratio:       >10,000× for high-accuracy models
+```
+
+```python
+from haiip.core.economic_ai import EconomicDecisionEngine
+from haiip.core.federated import FederatedLearner
+from haiip.core.human_oversight import HumanOversightEngine
+
+# Economic decision
+engine = EconomicDecisionEngine()
+d = engine.decide(anomaly_score=0.85, failure_probability=0.80)
+print(d.action, f"€{d.net_benefit:.0f} net benefit")
+
+# Federated learning
+result = FederatedLearner().run(n_rounds=10, local_epochs=3)
+print(f"Federated F1: {result.final_global_f1:.4f}  gap: {result.federated_gap:+.4f}")
+```
+
 ---
 
 ## EU AI Act Compliance
@@ -236,6 +316,40 @@ docker compose up
 
 ---
 
+## Cloud Deployment (Kubernetes)
+
+Phase 6 ships a complete cloud-native deployment stack targeting AWS EKS (eu-north-1 — GDPR compliant).
+
+```bash
+# 1. Provision infrastructure (Terraform)
+cd terraform/
+terraform init
+terraform apply -var="environment=production"
+
+# 2. Deploy with Helm
+helm dependency update helm/haiip/
+helm upgrade --install haiip helm/haiip/ \
+  --namespace haiip --create-namespace \
+  -f helm/haiip/values.yaml
+
+# 3. Or apply raw Kubernetes manifests
+kubectl apply -f k8s/
+```
+
+**Infrastructure components:**
+
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| Compute | AWS EKS 1.29 | 2–10 API pods, HPA auto-scaling |
+| Database | AWS RDS PostgreSQL 15 | Multi-AZ, encrypted, 7-day backups |
+| Cache | AWS ElastiCache Redis 7 | Session + Celery broker |
+| Storage | AWS S3 + EFS | Model artifacts (versioned), model cache |
+| Ingress | nginx-ingress + cert-manager | TLS via Let's Encrypt |
+| Observability | OpenTelemetry → OTLP | Grafana Tempo / Jaeger compatible |
+| Secrets | External Secrets Operator | AWS Secrets Manager integration |
+
+---
+
 ## Test Suite
 
 HAIIP maintains a comprehensive multi-tier test pyramid targeting 100% production-grade coverage.
@@ -253,7 +367,7 @@ pytest haiip/tests/api/ haiip/tests/integration/ -v
 # Security tests (OWASP Top 10)
 pytest haiip/tests/security/ -v
 
-# Crash / robustness tests
+# Crash / robustness tests (NaN, Inf, concurrent, edge cases)
 pytest haiip/tests/crash/ -v
 
 # Feature tests (BDD user journeys)
@@ -266,21 +380,27 @@ pytest haiip/tests/core/test_rag_hallucination.py -v
 locust -f haiip/tests/load/locustfile.py \
        --host=http://localhost:8000 \
        --headless --users 50 --spawn-rate 5 --run-time 60s
+
+# Phase 6 load tests
+locust -f haiip/tests/load/locustfile_phase6.py \
+       --host=http://localhost:8000 \
+       --headless --users 50 --spawn-rate 5 --run-time 60s
 ```
 
 ### Test Coverage by Category
 
 | Category | Tests | Purpose |
 |----------|-------|---------|
-| Core unit | ~150 | ML components, compliance engine, drift |
-| API unit | ~70 | Route validation, auth, RBAC |
-| Integration | ~25 | End-to-end user journeys |
+| Core unit | ~200 | ML components, economic AI, federated, oversight, compliance |
+| API unit | ~70 | Route validation, auth, RBAC, agent endpoints |
+| Integration | ~35 | End-to-end pipelines: sensor→economic→oversight |
 | Security (OWASP) | ~30 | SQL injection, JWT, RBAC, XSS |
-| Crash/robustness | ~30 | Edge cases, extreme values, malformed inputs |
-| Feature/BDD | ~25 | Role-based user stories |
+| Crash/robustness | ~50 | NaN/Inf/empty, concurrent access, extreme values |
+| Feature/BDD | ~40 | Role-based user stories, fleet ROI, federated scenarios |
 | ML evaluation | ~30 | F1, calibration, fairness, reproducibility |
 | RAG hallucination | ~30 | Grounding, source citation, uncertainty |
-| Load (Locust) | 4 user types | SLA validation under concurrent load |
+| Observability | ~20 | Cost model, OTel tracer, SLA breach detection |
+| Load (Locust) | 7 user types | SLA validation, economic/agent endpoints |
 
 ---
 
@@ -331,6 +451,20 @@ GET  /api/v1/documents/stats     # RAG index statistics
 DELETE /api/v1/documents         # Clear RAG index
 ```
 
+### Agent (Phase 5 — Agentic RAG)
+```
+POST /api/v1/agent/query         # Natural language industrial AI query (ReAct agent)
+GET  /api/v1/agent/capabilities  # Discover available tools in this deployment
+POST /api/v1/agent/diagnose      # machine_id + sensor readings → full agentic diagnosis
+```
+
+### Economic AI (Phase 6)
+```
+POST /api/v1/economic/decide     # Single cost-optimal maintenance decision
+POST /api/v1/economic/batch      # Batch decisions for fleet
+GET  /api/v1/economic/roi        # Fleet ROI summary for reporting period
+```
+
 ### Admin (admin role required)
 ```
 GET  /api/v1/admin/tenant        # Tenant information + stats
@@ -368,8 +502,12 @@ See [docs/DATASET_CARD.md](docs/DATASET_CARD.md) for full datasheets.
 | GBT Classifier | AI4I 2020 | Accuracy | ≥0.91 | ≥0.85 |
 | GBT Regressor | CMAPSS FD001 | MAE (cycles) | ≤18 | ≤25 |
 | GBT Regressor | CMAPSS FD001 | R² | ≥0.82 | ≥0.70 |
+| FedAvg (Phase 6) | Synthetic (3 nodes) | F1 vs centralized | gap < 0.15 | gap < 0.20 |
+| Economic Engine (Phase 6) | Simulated fleet | Decision accuracy | ≥0.88 | ≥0.80 |
+| Trust Calibration (Phase 6) | Simulated oversight | TCS (1−ECE) | ≥0.80 | ≥0.70 |
 
 See [docs/MODEL_CARD.md](docs/MODEL_CARD.md) for full model card including bias analysis.
+See [docs/EXPERIMENTAL_BRANCH.md](docs/EXPERIMENTAL_BRANCH.md) for Phase 6 research metrics.
 
 ---
 
@@ -381,13 +519,20 @@ This project is a Centria RDI deliverable. The following artifacts are available
 |----------|----------|-------------|
 | Model Card | `docs/MODEL_CARD.md` | Mitchell et al. (2019) format |
 | Dataset Card | `docs/DATASET_CARD.md` | Gebru et al. (2021) format |
+| Experimental Branch | `docs/EXPERIMENTAL_BRANCH.md` | Phase 6 RQ5-8 scope + limitations |
 | Compliance Engine | `haiip/core/compliance.py` | EU AI Act Article 52 |
 | Transparency Report | `ComplianceEngine.generate_transparency_report()` | Auto-generated monthly |
 | Audit Trail | `haiip/api/routes/admin.py` | Immutable, exportable CSV |
 | ML Evaluation | `haiip/tests/features/test_ml_evaluation.py` | Reproducible benchmarks |
 | Hallucination Tests | `haiip/tests/core/test_rag_hallucination.py` | RAG grounding verification |
 | Security Tests | `haiip/tests/security/test_security.py` | OWASP Top 10 |
-| Load Tests | `haiip/tests/load/locustfile.py` | SLA validation |
+| Load Tests | `haiip/tests/load/locustfile.py` | SLA validation (Phase 1–5) |
+| Phase 6 Load Tests | `haiip/tests/load/locustfile_phase6.py` | Economic AI + Agent SLA |
+| Economic AI Notebook | `notebooks/01_economic_decision.ipynb` | Decision boundary + fleet ROI |
+| Federated Learning Notebook | `notebooks/02_federated_learning.ipynb` | FedAvg learning curve + gap analysis |
+| K8s Manifests | `k8s/` | Production Kubernetes deployment |
+| Helm Chart | `helm/haiip/` | Parameterised deployment chart |
+| Terraform IaC | `terraform/` | AWS EKS + RDS + ElastiCache |
 
 ---
 
