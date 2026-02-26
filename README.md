@@ -45,11 +45,21 @@ Existing industrial AI solutions require enterprise-scale infrastructure (€50k
 **HAIIP hypothesis**: A lightweight, human-aligned, privacy-by-design AI platform can deliver
 predictive maintenance at SME scale while satisfying all EU regulatory requirements.
 
-**Key research questions**:
+**Key research questions (main branch)**:
 1. Can IsolationForest + GradientBoosting achieve >85% F1 on real SME sensor data?
 2. What is the minimum human oversight rate to satisfy EU AI Act Article 14?
 3. How does RAG-based document querying improve maintenance engineer decision-making?
 4. What is the performance/compliance trade-off in privacy-preserving anomaly logging?
+
+**Extended research questions (Phase 6 — experimental)**:
+5. How much downtime cost does the Expected Loss Minimization engine avoid vs naive thresholding?
+6. Can FedAvg across 3 Nordic SME nodes achieve F1 within 15% of the centralized baseline while preserving privacy?
+7. What is the measurable Human Override Gain (HOG) and Trust Calibration Score (TCS) for this system?
+8. What is the compute cost per prediction vs avoided downtime at fleet scale?
+
+> **Experimental branch notice**: Phase 6 features (Federated Learning, Economic AI, Human Oversight quantification)
+> are research-grade implementations. They are validated, tested, and documented but not production-hardened.
+> See `docs/EXPERIMENTAL_BRANCH.md` for the full research scope comparison.
 
 ---
 
@@ -111,9 +121,15 @@ predictive maintenance at SME scale while satisfying all EU regulatory requireme
 | Maintenance Prediction | GradientBoosting (6-class + RUL) | Failure mode + life estimation |
 | Drift Detection | KS test + PSI + Page-Hinkley | Distribution shift monitoring |
 | RAG Engine | FAISS + sentence-transformers + OpenAI | Maintenance document Q&A |
+| Agentic RAG | ReAct pattern (Yao et al., 2022) | Tool-calling industrial AI agent |
 | Background Workers | Celery + Redis | Retraining, drift checks, cleanup |
 | Dashboard | Streamlit | Industrial HMI with dark theme |
 | Compliance | Custom (Article 52) | EU AI Act audit trail |
+| **Economic AI** | Expected Loss Minimization | Maintenance decision optimisation (€) |
+| **Federated Learning** | FedAvg (McMahan et al., 2017) | Privacy-preserving cross-SME learning |
+| **Human Oversight** | HIR / HOG / TCS metrics | Quantified human oversight (Art. 14) |
+| **Observability** | OpenTelemetry + cost model | Distributed tracing + ROI per prediction |
+| **Infrastructure** | Kubernetes + Helm + Terraform | Cloud-native AWS EKS deployment |
 
 ---
 

@@ -1,0 +1,201 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haiip-api
+  namespace: haiip
+  labels:
+    app: haiip-api
+    version: "1.0.0"
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: haiip-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: haiip-api
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: haiip-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: ghcr.io/haiip/api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: haiip-secrets
+                  key: database-url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: haiip-secrets
+                  key: secret-key
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: haiip-secrets
+                  key: redis-url
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: haiip-config
+                  key: otel-endpoint
+            - name: OTEL_SERVICE_NAME
+              value: haiip-api
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /app/model_cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: haiip-model-cache
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: haiip-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haiip-worker
+  namespace: haiip
+  labels:
+    app: haiip-worker
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: haiip-worker
+  template:
+    metadata:
+      labels:
+        app: haiip-worker
+    spec:
+      serviceAccountName: haiip-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: worker
+          image: ghcr.io/haiip/api:latest
+          command: ["celery", "-A", "haiip.worker.celery_app", "worker",
+                    "--loglevel=info", "--concurrency=2"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: haiip-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: haiip-secrets
+                  key: redis-url
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haiip-dashboard
+  namespace: haiip
+  labels:
+    app: haiip-dashboard
+    component: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: haiip-dashboard
+  template:
+    metadata:
+      labels:
+        app: haiip-dashboard
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: dashboard
+          image: ghcr.io/haiip/dashboard:latest
+          ports:
+            - containerPort: 8501
+              name: streamlit
+          env:
+            - name: API_BASE_URL
+              value: "http://haiip-api:8000"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 30
+            periodSeconds: 10

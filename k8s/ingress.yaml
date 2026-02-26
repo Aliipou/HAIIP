@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: haiip-ingress
+  namespace: haiip
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Content-Type-Options nosniff;
+      add_header X-Frame-Options DENY;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+      add_header X-XSS-Protection "1; mode=block";
+spec:
+  tls:
+    - hosts:
+        - api.haiip.ai
+        - dashboard.haiip.ai
+      secretName: haiip-tls
+  rules:
+    - host: api.haiip.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: haiip-api
+                port:
+                  number: 8000
+    - host: dashboard.haiip.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: haiip-dashboard
+                port:
+                  number: 8501

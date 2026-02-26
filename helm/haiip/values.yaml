@@ -1,0 +1,110 @@
+# HAIIP Helm chart default values
+# Override per environment: helm upgrade --install haiip ./helm/haiip -f values-prod.yaml
+
+global:
+  imageRegistry: ghcr.io/haiip
+  imagePullPolicy: Always
+  environment: production
+
+api:
+  image:
+    repository: api
+    tag: latest
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  service:
+    port: 8000
+  env:
+    LOG_LEVEL: INFO
+    ENVIRONMENT: production
+
+worker:
+  image:
+    repository: api
+    tag: latest
+  replicas: 1
+  concurrency: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+dashboard:
+  image:
+    repository: dashboard
+    tag: latest
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    port: 8501
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    api: api.haiip.ai
+    dashboard: dashboard.haiip.ai
+  tls:
+    secretName: haiip-tls
+
+observability:
+  otel:
+    enabled: true
+    endpoint: http://otel-collector:4317
+  prometheus:
+    enabled: true
+    scrape: true
+  loki:
+    enabled: false
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: haiip-secrets
+    existingSecretPasswordKey: redis-password
+  master:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+postgresql:
+  enabled: false  # Use external RDS in production
+  auth:
+    existingSecret: haiip-secrets
+
+secrets:
+  # All secrets injected from AWS Secrets Manager via External Secrets Operator
+  externalSecretsEnabled: true
+  secretStoreName: aws-secrets-manager
+  remoteRefPrefix: haiip/production/
+
+modelCache:
+  storage: 10Gi
+  storageClassName: efs-sc
+  accessMode: ReadWriteMany
