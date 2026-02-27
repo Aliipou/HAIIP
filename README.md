@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HAIIP — Human-Aligned Industrial Intelligence Platform
 Demo video : https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO
 [![CI](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml/badge.svg)](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml)
@@ -5,21 +6,26 @@ Demo video : https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb3
 [![EU AI Act](https://img.shields.io/badge/EU%20AI%20Act-Limited%20Risk%20%E2%9C%85-green)](docs/MODEL_CARD.md)
 [![License](https://img.shields.io/badge/license-Proprietary-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue)](pyproject.toml)
+=======
+# HAIIP Experimental Branch — Phase 6 Research Features
+
+> **Status**: Research-grade — validated, tested, not production-hardened.
+> **Branch**: `main` (Phase 6 features are included in main after Phase 4/5 foundation)
+>>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 
 ---
 
-**RDI-grade AI platform for SME predictive maintenance, anomaly detection, and human-robot collaboration.**
-Built for the **NextIndustriAI** project across Jakobstad (FI), Sundsvall (SE), and Narvik (NO).
-Developed at **Centria University of Applied Sciences** as a fully documented RDI deliverable.
+## Overview
 
-> **Research significance**: HAIIP demonstrates that production-grade Human-Aligned AI for industrial
-> SMEs can be built and deployed with full EU AI Act compliance, transparent ML pipelines, and
-> quantified human oversight — achieving RDI quality sufficient for peer-reviewed publication.
+Phase 6 extends HAIIP with four research-grade features that push the platform
+from a production-ready SME tool toward an RDI-grade academic contribution
+suitable for peer-reviewed publication.
 
 ---
 
-## Table of Contents
+## Feature Comparison: Main vs Phase 6
 
+<<<<<<< HEAD
 1. [Research Motivation](#research-motivation)
 2. [Architecture](#architecture)
 3. [ML System Overview](#ml-system-overview)
@@ -35,23 +41,56 @@ Developed at **Centria University of Applied Sciences** as a fully documented RD
 13. [RDI Artifacts](#rdi-artifacts)
 14. [Contributing](#contributing)
 15. [Citation](#citation)
+=======
+| Capability | Main (Phase 1–5) | Phase 6 (Experimental) |
+|------------|------------------|------------------------|
+| Anomaly Detection | ✅ Production | ✅ Same |
+| Predictive Maintenance | ✅ Production | ✅ Same |
+| RAG Q&A | ✅ Production | ✅ Same |
+| Agentic RAG | ✅ ReAct agent | ✅ Same |
+| Economic Decision | ❌ | ✅ Expected Loss Minimization |
+| Federated Learning | ❌ | ✅ FedAvg (3 Nordic nodes, simulated) |
+| Human Oversight Metrics | Qualitative (Art. 14) | ✅ HIR / HOG / TCS quantified |
+| OpenTelemetry Tracing | ❌ | ✅ Distributed tracing + SLA checks |
+| Per-Prediction Cost Model | ❌ | ✅ Compute cost vs avoided downtime |
+| Kubernetes | Docker only | ✅ EKS deployment |
+| Helm Chart | ❌ | ✅ Production-ready chart |
+| Terraform IaC | ❌ | ✅ AWS EKS + RDS + ElastiCache |
+| Research Notebooks | ❌ | ✅ 2 reproducibility notebooks |
+>>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 
 ---
 
-## Research Motivation
+## Research Questions Addressed
 
-Nordic SMEs operate 60% of the region's manufacturing equipment with minimal IT capacity.
-Unplanned machine downtime costs European SMEs €5–15k/hour in lost production.
-Existing industrial AI solutions require enterprise-scale infrastructure (€50k+ setup).
+### RQ5 — Economic AI
+> How much downtime cost does the Expected Loss Minimization engine avoid
+> compared to naive probability thresholding?
 
-**HAIIP hypothesis**: A lightweight, human-aligned, privacy-by-design AI platform can deliver
-predictive maintenance at SME scale while satisfying all EU regulatory requirements.
+**Implementation**: `haiip/core/economic_ai.py`
+**Test coverage**: `haiip/tests/core/test_economic_ai.py` (35+ tests)
+**Notebook**: `notebooks/01_economic_decision.ipynb`
 
+<<<<<<< HEAD
 **Key research questions (main branch)**:
 1. Can IsolationForest + GradientBoosting achieve >85% F1 on real SME sensor data?
 2. What is the minimum human oversight rate to satisfy EU AI Act Article 14?
 3. How does RAG-based document querying improve maintenance engineer decision-making?
 4. What is the performance/compliance trade-off in privacy-preserving anomaly logging?
+=======
+**Formula**:
+```
+E[Cost_wait]   = P(failure) × C_downtime × safety_factor
+E[Cost_action] = P(no_failure) × C_false_positive + C_maintenance
+Net_benefit    = E[Cost_wait] − E[Cost_action]
+```
+
+**Decision rules**:
+- `REPAIR_NOW` : P(failure) ≥ 0.75
+- `SCHEDULE`   : P(failure) ≥ 0.50
+- `MONITOR`    : anomaly_score ≥ 0.20
+- `IGNORE`     : below noise floor
+>>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 
 **Extended research questions (Phase 6 — experimental)**:
 5. How much downtime cost does the Expected Loss Minimization engine avoid vs naive thresholding?
@@ -65,56 +104,22 @@ predictive maintenance at SME scale while satisfying all EU regulatory requireme
 
 ---
 
-## Architecture
+### RQ6 — Federated Learning
+> Can FedAvg across 3 Nordic SME nodes achieve F1 within 15% of the centralized
+> baseline while preserving privacy?
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        HAIIP Platform Architecture                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   Sensors (OPC UA / MQTT)                                                   │
-│        │                                                                    │
-│        ▼                                                                    │
-│   ┌──────────────────┐      ┌─────────────────────────────────────────┐    │
-│   │  Ingestion       │      │           FastAPI Backend               │    │
-│   │  Pipeline        │─────▶│  /api/v1/predict  /api/v1/alerts        │    │
-│   │  (normalise,     │      │  /api/v1/feedback  /api/v1/audit        │    │
-│   │   validate)      │      │  /api/v1/admin     /api/v1/query        │    │
-│   └──────────────────┘      └────────────┬────────────────────────────┘    │
-│                                          │                                  │
-│          ┌───────────────────────────────┤                                  │
-│          │                              │                                  │
-│          ▼                              ▼                                  │
-│   ┌──────────────┐              ┌──────────────────┐                        │
-│   │  ML Core     │              │  SQLite / PgSQL  │                        │
-│   │  ┌─────────┐ │              │  ┌─────────────┐ │                        │
-│   │  │Anomaly  │ │              │  │ Predictions │ │                        │
-│   │  │Detector │ │              │  │ Alerts      │ │                        │
-│   │  ├─────────┤ │              │  │ AuditLog    │ │                        │
-│   │  │Maint.   │ │              │  │ FeedbackLog │ │                        │
-│   │  │Predictor│ │              │  │ ModelReg.   │ │                        │
-│   │  ├─────────┤ │              │  └─────────────┘ │                        │
-│   │  │Drift    │ │              └──────────────────┘                        │
-│   │  │Detector │ │                                                          │
-│   │  ├─────────┤ │              ┌──────────────────┐                        │
-│   │  │RAG      │ │              │  Celery + Redis  │                        │
-│   │  │Engine   │ │              │  (background     │                        │
-│   │  ├─────────┤ │              │   retraining,    │                        │
-│   │  │Compliance│ │              │   drift checks)  │                        │
-│   │  │Engine   │ │              └──────────────────┘                        │
-│   │  └─────────┘ │                                                          │
-│   └──────────────┘                                                          │
-│                                                                             │
-│   ┌──────────────────────────────────────────────────────┐                  │
-│   │              Streamlit Dashboard (9 pages)           │                  │
-│   │  Overview │ Monitor │ Maintenance │ Alerts │ Query   │                  │
-│   │  Feedback │ ROI     │ Audit Trail │ Admin  │         │                  │
-│   └──────────────────────────────────────────────────────┘                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+**Implementation**: `haiip/core/federated.py`
+**Test coverage**: `haiip/tests/core/test_federated.py` (20+ tests)
+**Notebook**: `notebooks/02_federated_learning.ipynb`
 
-**Component responsibilities:**
+**Nodes**:
+| Node | Country | Industry | n_samples | failure_rate |
+|------|---------|----------|-----------|--------------|
+| SME_FI | Finland | Paper mill | 800 | 12% |
+| SME_SE | Sweden | Automotive stamping | 1200 | 8% |
+| SME_NO | Norway | Offshore pumps | 600 | 18% |
 
+<<<<<<< HEAD
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | API | FastAPI + asyncio | REST API, JWT auth, multi-tenancy |
@@ -132,43 +137,25 @@ predictive maintenance at SME scale while satisfying all EU regulatory requireme
 | **Human Oversight** | HIR / HOG / TCS metrics | Quantified human oversight (Art. 14) |
 | **Observability** | OpenTelemetry + cost model | Distributed tracing + ROI per prediction |
 | **Infrastructure** | Kubernetes + Helm + Terraform | Cloud-native AWS EKS deployment |
+=======
+**Privacy guarantees**: Only weight deltas transmitted — no raw data leaves node boundary.
+>>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 
 ---
 
-## ML System Overview
+### RQ7 — Human Oversight Quantification
+> What is the measurable Human Override Gain (HOG) and Trust Calibration Score (TCS)?
 
-### Anomaly Detection
-```
-Input: [air_temp, process_temp, rpm, torque, tool_wear]
-       → StandardScaler → IsolationForest (contamination=0.05)
-       → anomaly_score [0,1] + is_anomaly (bool) + confidence [0,1]
-```
+**Implementation**: `haiip/core/human_oversight.py`
+**Test coverage**: `haiip/tests/core/test_human_oversight.py` (30+ tests)
 
-### Predictive Maintenance
-```
-Input: same 5 features
-       → GradientBoostingClassifier → failure_mode (6 classes)
-       → GradientBoostingRegressor  → rul_cycles (int, ≥0)
-```
-
-### Concept Drift (weekly)
-```
-Reference distribution (last N days)
-       → KS test (p-value) per feature
-       → PSI (Population Stability Index) per feature
-       → Page-Hinkley online change detector
-       → Alert if PSI > 0.2 or p-value < 0.05
-```
-
-### RAG — Maintenance Document Q&A
-```
-Query: "When should I replace bearing XR-50?"
-       → sentence-transformers (all-MiniLM-L6-v2) embedding
-       → FAISS cosine similarity search
-       → Top-k chunk retrieval
-       → OpenAI GPT-4o-mini / template answer
-       → Answer + source citations + confidence
-```
+**Metrics**:
+| Metric | Formula | Target |
+|--------|---------|--------|
+| HIR (Human Intervention Rate) | `|reviewed| / |decisions|` | 0.05–0.15 |
+| HOG (Human Override Gain) | `F1(corrected) − F1(ai_only)` | > 0.02 |
+| TCS (Trust Calibration Score) | `1 − ECE` | ≥ 0.80 |
+| ECE (Expected Calibration Error) | Guo et al. (2017) | < 0.10 |
 
 ### Agentic RAG — ReAct Tool-Calling Agent (Phase 5)
 ```
@@ -250,45 +237,67 @@ print(f"Federated F1: {result.final_global_f1:.4f}  gap: {result.federated_gap:+
 
 ---
 
-## EU AI Act Compliance
+### RQ8 — Per-Prediction Cost Model
+> What is the compute cost per prediction vs avoided downtime at fleet scale?
 
-HAIIP is classified as **Limited Risk** under EU AI Act Article 52.
+**Implementation**: `haiip/observability/cost_model.py`
+**Test coverage**: `haiip/tests/core/test_observability.py`
 
-| Requirement | Implementation | Status |
-|-------------|---------------|--------|
-| Risk classification | `ComplianceEngine.classify_risk()` | ✅ Limited Risk |
-| Transparency (Art. 52) | Monthly `TransparencyReport` | ✅ Auto-generated |
-| Human oversight (Art. 14) | All decisions require human review option | ✅ Enforced |
-| Record keeping (Art. 12) | `AuditLog` — every decision logged | ✅ Complete |
-| Provision of information (Art. 13) | Model Card + Dataset Card + in-app disclosure | ✅ Complete |
-| GDPR data minimisation (Art. 5c) | Input features SHA-256 hashed in audit log | ✅ Privacy by design |
-| Incident reporting (Art. 73) | `detect_incidents()` — low confidence + bias | ✅ Automated |
-| Complaint procedure | In-app feedback + DPA contact | ✅ Documented |
-
-Audit log retention: **5 years** (GDPR Art. 17 balanced with AI Act Art. 12).
+**At SME defaults (AWS eu-north-1)**:
+- Inference cost: ~€0.000007 per prediction (t3.medium)
+- Avoided downtime per correct REPAIR_NOW: €4,000+
+- ROI ratio: >10,000× for high-accuracy models
 
 ---
 
-## Quick Start
+## Limitations and Threats to Validity
+
+1. **Federated simulation**: Federation is simulated in-process (no actual network). Real-world
+   communication delays, Byzantine failures, and gradient attacks are not modelled.
+
+2. **Synthetic non-IID data**: Node data is synthesised from Gaussian distributions with
+   configurable shift. Real SME sensor data may have different statistical properties.
+
+3. **Economic parameters**: Default cost parameters (€500/hr, 8h MTTR) are representative
+   Nordic SME estimates — actual values vary by site and must be calibrated per deployment.
+
+4. **Oversight simulation**: HOG/TCS metrics are computed on simulated human decisions,
+   not real operator data. A longitudinal field study is required for validation.
+
+---
+
+## How to Run Phase 6 Features
 
 ```bash
-# 1. Install dependencies
-pip install -e ".[dev]"
+# Economic decision
+python -c "
+from haiip.core.economic_ai import EconomicDecisionEngine
+engine = EconomicDecisionEngine()
+d = engine.decide(anomaly_score=0.85, failure_probability=0.80)
+print(d.action, d.net_benefit)
+"
 
-# 2. Configure environment
-cp .env.example .env.local
-# Required: HAIIP_SECRET_KEY (min 32 chars), HAIIP_DATABASE_URL
+# Federated learning
+python -c "
+from haiip.core.federated import FederatedLearner
+result = FederatedLearner().run(n_rounds=5, local_epochs=2)
+print(f'F1: {result.final_global_f1:.4f}, gap: {result.federated_gap:+.4f}')
+"
 
-# 3. Start API
-uvicorn haiip.api.main:app --reload
+# Human oversight
+python -c "
+from haiip.core.human_oversight import HumanOversightEngine, OversightEvent
+eng = HumanOversightEngine()
+eng.record(OversightEvent.create('d1','failure',0.8,'normal',True,True,'normal'))
+m = eng.compute_metrics()
+print(f'HIR={m.hir:.2f}, HOG={m.hog:+.4f}, TCS={m.tcs:.4f}')
+"
 
-# 4. Start dashboard (separate terminal)
-streamlit run haiip/dashboard/app.py
-
-# 5. API docs → http://localhost:8000/api/docs
-# 6. Dashboard → http://localhost:8501
+# Notebooks
+jupyter lab notebooks/
 ```
 
+<<<<<<< HEAD
 **Demo mode** (no API required — works offline):
 ```bash
 streamlit run haiip/dashboard/app.py
@@ -534,52 +543,20 @@ This project is a Centria RDI deliverable. The following artifacts are available
 | Helm Chart | `helm/haiip/` | Parameterised deployment chart |
 | Terraform IaC | `terraform/` | AWS EKS + RDS + ElastiCache |
 
+=======
+>>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 ---
 
 ## Citation
 
-If you use HAIIP in academic work, please cite:
+If using Phase 6 experimental features in research, please cite:
 
 ```bibtex
-@techreport{haiip2026,
-  title     = {HAIIP: Human-Aligned Industrial Intelligence Platform for
-               SME Predictive Maintenance with EU AI Act Compliance},
-  author    = {NextIndustriAI Research Team},
+@techreport{haiip2025,
+  title  = {HAIIP: Human-Aligned Industrial Intelligence Platform},
+  author = {NextIndustriAI Team},
+  year   = {2025},
   institution = {Centria University of Applied Sciences},
-  year      = {2026},
-  type      = {RDI Deliverable},
-  address   = {Jakobstad, Finland}
+  note   = {RDI deliverable — NextIndustriAI project (Jakobstad/Sundsvall/Narvik)}
 }
 ```
-
-**Datasets used** (cite independently):
-- Matzka, S. (2020). AI4I 2020 Predictive Maintenance Dataset. UCI ML Repository. DOI: 10.24432/C5HS5C
-- Saxena, A. et al. (2008). Damage propagation modeling for aircraft engine run-to-failure simulation. PHM Conference.
-
----
-
-## Contributing
-
-This is an RDI project — contributions welcome from consortium partners.
-
-```bash
-# Setup pre-commit hooks
-pip install pre-commit
-pre-commit install
-pre-commit install --hook-type commit-msg
-
-# Run all quality checks before PR
-pytest haiip/tests/ -v
-ruff check haiip/
-bandit -r haiip/ --exclude haiip/tests -ll
-```
-
-See `CONTRIBUTING.md` for code standards, commit conventions, and review process.
-
----
-
-## License
-
-Proprietary — NextIndustriAI RDI Project, Centria University of Applied Sciences.
-Datasets used are licensed independently (see Dataset Card).
-Training code may be open-sourced in a future release.
