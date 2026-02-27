@@ -1,47 +1,64 @@
-
 # HAIIP — Human-Aligned Industrial Intelligence Platform
+
 Demo video : https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO
+
 [![CI](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml/badge.svg)](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/nextindustriai/haiip/branch/main/graph/badge.svg)](https://codecov.io/gh/nextindustriai/haiip)
 [![EU AI Act](https://img.shields.io/badge/EU%20AI%20Act-Limited%20Risk%20%E2%9C%85-green)](docs/MODEL_CARD.md)
 [![License](https://img.shields.io/badge/license-Proprietary-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue)](pyproject.toml)
-=======
-# HAIIP Experimental Branch — Phase 6 Research Features
 
-> **Status**: Research-grade — validated, tested, not production-hardened.
-> **Branch**: `main` (Phase 6 features are included in main after Phase 4/5 foundation)
->>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
+> **Experimental branch** — Phase 6 research features: Economic AI, Federated Learning,
+> Human Oversight quantification, ROS2 closed-loop integration.
+> Validated, tested, not production-hardened. See [docs/EXPERIMENTAL_BRANCH.md](docs/EXPERIMENTAL_BRANCH.md).
 
 ---
 
-## Overview
+## Table of Contents
 
-Phase 6 extends HAIIP with four research-grade features that push the platform
-from a production-ready SME tool toward an RDI-grade academic contribution
-suitable for peer-reviewed publication.
+1. [Research Motivation](#research-motivation)
+2. [Feature Comparison: Main vs Phase 6](#feature-comparison-main-vs-phase-6)
+3. [Architecture](#architecture)
+4. [ML System Overview](#ml-system-overview)
+5. [Phase 6 — Economic AI, Federated Learning & Human Oversight](#phase-6--economic-ai-federated-learning--human-oversight)
+6. [ROS2 Integration — Closed-Loop Robotic Automation](#ros2-integration--closed-loop-robotic-automation)
+7. [EU AI Act Compliance](#eu-ai-act-compliance)
+8. [Quick Start](#quick-start)
+9. [Full Stack (Docker)](#full-stack-docker)
+10. [Cloud Deployment (Kubernetes)](#cloud-deployment-kubernetes)
+11. [Test Suite](#test-suite)
+12. [API Reference](#api-reference)
+13. [Datasets](#datasets)
+14. [Model Performance](#model-performance)
+15. [RDI Artifacts](#rdi-artifacts)
+16. [Citation](#citation)
+
+---
+
+## Research Motivation
+
+HAIIP addresses the gap between generic AI platforms and the specific needs of Nordic SMEs in
+predictive maintenance: limited data, multi-tenancy, EU regulatory compliance, and the need
+for economically-justified maintenance decisions.
+
+**Key research questions (main branch)**:
+1. Can IsolationForest + GradientBoosting achieve >85% F1 on real SME sensor data?
+2. What is the minimum human oversight rate to satisfy EU AI Act Article 14?
+3. How does RAG-based document querying improve maintenance engineer decision-making?
+4. What is the performance/compliance trade-off in privacy-preserving anomaly logging?
+
+**Extended research questions (Phase 6 — experimental)**:
+5. How much downtime cost does the Expected Loss Minimization engine avoid vs naive thresholding?
+6. Can FedAvg across 3 Nordic SME nodes achieve F1 within 15% of the centralized baseline?
+7. What is the measurable Human Override Gain (HOG) and Trust Calibration Score (TCS)?
+8. What is the compute cost per prediction vs avoided downtime at fleet scale?
+
+> See `docs/EXPERIMENTAL_BRANCH.md` for the full Phase 6 research scope and limitations.
 
 ---
 
 ## Feature Comparison: Main vs Phase 6
 
-<<<<<<< HEAD
-1. [Research Motivation](#research-motivation)
-2. [Architecture](#architecture)
-3. [ML System Overview](#ml-system-overview)
-4. [Phase 6 — Economic AI, Federated Learning & Human Oversight](#phase-6--economic-ai-federated-learning--human-oversight)
-5. [EU AI Act Compliance](#eu-ai-act-compliance)
-6. [Quick Start](#quick-start)
-7. [Full Stack (Docker)](#full-stack-docker)
-8. [Cloud Deployment (Kubernetes)](#cloud-deployment-kubernetes)
-9. [Test Suite](#test-suite)
-10. [API Reference](#api-reference)
-11. [Datasets](#datasets)
-12. [Model Performance](#model-performance)
-13. [RDI Artifacts](#rdi-artifacts)
-14. [Contributing](#contributing)
-15. [Citation](#citation)
-=======
 | Capability | Main (Phase 1–5) | Phase 6 (Experimental) |
 |------------|------------------|------------------------|
 | Anomaly Detection | ✅ Production | ✅ Same |
@@ -53,73 +70,43 @@ suitable for peer-reviewed publication.
 | Human Oversight Metrics | Qualitative (Art. 14) | ✅ HIR / HOG / TCS quantified |
 | OpenTelemetry Tracing | ❌ | ✅ Distributed tracing + SLA checks |
 | Per-Prediction Cost Model | ❌ | ✅ Compute cost vs avoided downtime |
+| ROS2 Closed-Loop | ❌ | ✅ Sensor → AI → Economic → Actuator |
 | Kubernetes | Docker only | ✅ EKS deployment |
 | Helm Chart | ❌ | ✅ Production-ready chart |
 | Terraform IaC | ❌ | ✅ AWS EKS + RDS + ElastiCache |
 | Research Notebooks | ❌ | ✅ 2 reproducibility notebooks |
->>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 
 ---
 
-## Research Questions Addressed
+## Architecture
 
-### RQ5 — Economic AI
-> How much downtime cost does the Expected Loss Minimization engine avoid
-> compared to naive probability thresholding?
-
-**Implementation**: `haiip/core/economic_ai.py`
-**Test coverage**: `haiip/tests/core/test_economic_ai.py` (35+ tests)
-**Notebook**: `notebooks/01_economic_decision.ipynb`
-
-<<<<<<< HEAD
-**Key research questions (main branch)**:
-1. Can IsolationForest + GradientBoosting achieve >85% F1 on real SME sensor data?
-2. What is the minimum human oversight rate to satisfy EU AI Act Article 14?
-3. How does RAG-based document querying improve maintenance engineer decision-making?
-4. What is the performance/compliance trade-off in privacy-preserving anomaly logging?
-=======
-**Formula**:
 ```
-E[Cost_wait]   = P(failure) × C_downtime × safety_factor
-E[Cost_action] = P(no_failure) × C_false_positive + C_maintenance
-Net_benefit    = E[Cost_wait] − E[Cost_action]
+┌──────────────────────────────────────────────────────────────────┐
+│                        HAIIP Platform                            │
+│                                                                  │
+│  Sensors / ROS2  ──►  FastAPI (async)  ──►  Streamlit Dashboard  │
+│  OPC-UA / MQTT        SQLAlchemy 2.0        10 pages, dark HMI   │
+│                        SQLite / PostgreSQL                       │
+│                                                                  │
+│  Core AI Stack:                                                  │
+│    IsolationForest  ──  AnomalyDetector                          │
+│    GradientBoosting ──  MaintenancePredictor + RUL               │
+│    FAISS + ST       ──  RAGEngine  ──  LLM (Groq/OpenAI)        │
+│    ReAct Agent      ──  IndustrialAgent (tool-calling)           │
+│                                                                  │
+│  Phase 6 Research:                                               │
+│    EconomicDecisionEngine  ──  Expected Loss Minimization        │
+│    FederatedLearner        ──  FedAvg (3 Nordic SME nodes)       │
+│    HumanOversightEngine    ──  HIR / HOG / TCS metrics           │
+│    OpenTelemetry           ──  Distributed tracing + cost model  │
+│    ROS2 Bridge             ──  Closed-loop robotic automation    │
+└──────────────────────────────────────────────────────────────────┘
 ```
-
-**Decision rules**:
-- `REPAIR_NOW` : P(failure) ≥ 0.75
-- `SCHEDULE`   : P(failure) ≥ 0.50
-- `MONITOR`    : anomaly_score ≥ 0.20
-- `IGNORE`     : below noise floor
->>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
-
-**Extended research questions (Phase 6 — experimental)**:
-5. How much downtime cost does the Expected Loss Minimization engine avoid vs naive thresholding?
-6. Can FedAvg across 3 Nordic SME nodes achieve F1 within 15% of the centralized baseline while preserving privacy?
-7. What is the measurable Human Override Gain (HOG) and Trust Calibration Score (TCS) for this system?
-8. What is the compute cost per prediction vs avoided downtime at fleet scale?
-
-> **Experimental branch notice**: Phase 6 features (Federated Learning, Economic AI, Human Oversight quantification)
-> are research-grade implementations. They are validated, tested, and documented but not production-hardened.
-> See `docs/EXPERIMENTAL_BRANCH.md` for the full research scope comparison.
 
 ---
 
-### RQ6 — Federated Learning
-> Can FedAvg across 3 Nordic SME nodes achieve F1 within 15% of the centralized
-> baseline while preserving privacy?
+## ML System Overview
 
-**Implementation**: `haiip/core/federated.py`
-**Test coverage**: `haiip/tests/core/test_federated.py` (20+ tests)
-**Notebook**: `notebooks/02_federated_learning.ipynb`
-
-**Nodes**:
-| Node | Country | Industry | n_samples | failure_rate |
-|------|---------|----------|-----------|--------------|
-| SME_FI | Finland | Paper mill | 800 | 12% |
-| SME_SE | Sweden | Automotive stamping | 1200 | 8% |
-| SME_NO | Norway | Offshore pumps | 600 | 18% |
-
-<<<<<<< HEAD
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | API | FastAPI + asyncio | REST API, JWT auth, multi-tenancy |
@@ -127,7 +114,7 @@ Net_benefit    = E[Cost_wait] − E[Cost_action]
 | Anomaly Detection | IsolationForest + StandardScaler | Unsupervised anomaly scoring |
 | Maintenance Prediction | GradientBoosting (6-class + RUL) | Failure mode + life estimation |
 | Drift Detection | KS test + PSI + Page-Hinkley | Distribution shift monitoring |
-| RAG Engine | FAISS + sentence-transformers + OpenAI | Maintenance document Q&A |
+| RAG Engine | FAISS + sentence-transformers + Groq | Maintenance document Q&A |
 | Agentic RAG | ReAct pattern (Yao et al., 2022) | Tool-calling industrial AI agent |
 | Background Workers | Celery + Redis | Retraining, drift checks, cleanup |
 | Dashboard | Streamlit | Industrial HMI with dark theme |
@@ -136,26 +123,8 @@ Net_benefit    = E[Cost_wait] − E[Cost_action]
 | **Federated Learning** | FedAvg (McMahan et al., 2017) | Privacy-preserving cross-SME learning |
 | **Human Oversight** | HIR / HOG / TCS metrics | Quantified human oversight (Art. 14) |
 | **Observability** | OpenTelemetry + cost model | Distributed tracing + ROI per prediction |
+| **ROS2 Bridge** | rclpy / asyncio | Closed-loop robotic automation |
 | **Infrastructure** | Kubernetes + Helm + Terraform | Cloud-native AWS EKS deployment |
-=======
-**Privacy guarantees**: Only weight deltas transmitted — no raw data leaves node boundary.
->>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
-
----
-
-### RQ7 — Human Oversight Quantification
-> What is the measurable Human Override Gain (HOG) and Trust Calibration Score (TCS)?
-
-**Implementation**: `haiip/core/human_oversight.py`
-**Test coverage**: `haiip/tests/core/test_human_oversight.py` (30+ tests)
-
-**Metrics**:
-| Metric | Formula | Target |
-|--------|---------|--------|
-| HIR (Human Intervention Rate) | `|reviewed| / |decisions|` | 0.05–0.15 |
-| HOG (Human Override Gain) | `F1(corrected) − F1(ai_only)` | > 0.02 |
-| TCS (Trust Calibration Score) | `1 − ECE` | ≥ 0.80 |
-| ECE (Expected Calibration Error) | Guo et al. (2017) | < 0.10 |
 
 ### Agentic RAG — ReAct Tool-Calling Agent (Phase 5)
 ```
@@ -177,6 +146,7 @@ Query: "Is machine M-003 about to fail?"
 > Full scope in [docs/EXPERIMENTAL_BRANCH.md](docs/EXPERIMENTAL_BRANCH.md).
 
 ### Economic Decision Engine
+
 Transforms ML outputs into cost-optimal maintenance decisions using Expected Loss Minimization:
 
 ```
@@ -187,16 +157,23 @@ Net_benefit    = E[Cost_wait] − E[Cost_action]
 Decision → REPAIR_NOW | SCHEDULE | MONITOR | IGNORE
 ```
 
+**Decision rules**:
+- `REPAIR_NOW` : P(failure) ≥ 0.75
+- `SCHEDULE`   : P(failure) ≥ 0.50
+- `MONITOR`    : anomaly_score ≥ 0.20
+- `IGNORE`     : below noise floor
+
 Nordic SME defaults: `C_downtime = €4,000/failure`, `C_maintenance = €590/event`
 
 ### Federated SME Learning (FedAvg)
+
 Privacy-preserving collaborative learning across 3 Nordic manufacturing sites:
 
-| Node | Country | Industry | Dataset size |
-|------|---------|----------|-------------|
-| SME_FI | Finland | Paper mill (vibration) | 800 samples |
-| SME_SE | Sweden | Automotive stamping | 1,200 samples |
-| SME_NO | Norway | Offshore pumps | 600 samples |
+| Node | Country | Industry | n_samples | failure_rate |
+|------|---------|----------|-----------|--------------|
+| SME_FI | Finland | Paper mill | 800 | 12% |
+| SME_SE | Sweden | Automotive stamping | 1,200 | 8% |
+| SME_NO | Norway | Offshore pumps | 600 | 18% |
 
 **Privacy**: Only weight deltas transmitted — no raw sensor data leaves site boundary.
 **Quality**: Federated F1 within 15% of centralized baseline (validated).
@@ -235,73 +212,108 @@ result = FederatedLearner().run(n_rounds=10, local_epochs=3)
 print(f"Federated F1: {result.final_global_f1:.4f}  gap: {result.federated_gap:+.4f}")
 ```
 
----
+### Limitations and Threats to Validity
 
-### RQ8 — Per-Prediction Cost Model
-> What is the compute cost per prediction vs avoided downtime at fleet scale?
-
-**Implementation**: `haiip/observability/cost_model.py`
-**Test coverage**: `haiip/tests/core/test_observability.py`
-
-**At SME defaults (AWS eu-north-1)**:
-- Inference cost: ~€0.000007 per prediction (t3.medium)
-- Avoided downtime per correct REPAIR_NOW: €4,000+
-- ROI ratio: >10,000× for high-accuracy models
+1. **Federated simulation**: Federation is simulated in-process (no actual network).
+2. **Synthetic non-IID data**: Node data is synthesised — real SME data may differ.
+3. **Economic parameters**: Default cost parameters are representative Nordic SME estimates.
+4. **Oversight simulation**: HOG/TCS metrics use simulated decisions — field study required.
 
 ---
 
-## Limitations and Threats to Validity
+## ROS2 Integration — Closed-Loop Robotic Automation
 
-1. **Federated simulation**: Federation is simulated in-process (no actual network). Real-world
-   communication delays, Byzantine failures, and gradient attacks are not modelled.
+HAIIP implements a **Human-Aligned Robotic Automation** pipeline — a full closed loop
+from physical sensor to AI decision to machine actuator, with human override at every step.
 
-2. **Synthetic non-IID data**: Node data is synthesised from Gaussian distributions with
-   configurable shift. Real SME sensor data may have different statistical properties.
-
-3. **Economic parameters**: Default cost parameters (€500/hr, 8h MTTR) are representative
-   Nordic SME estimates — actual values vary by site and must be calibrated per deployment.
-
-4. **Oversight simulation**: HOG/TCS metrics are computed on simulated human decisions,
-   not real operator data. A longitudinal field study is required for validation.
-
----
-
-## How to Run Phase 6 Features
-
-```bash
-# Economic decision
-python -c "
-from haiip.core.economic_ai import EconomicDecisionEngine
-engine = EconomicDecisionEngine()
-d = engine.decide(anomaly_score=0.85, failure_probability=0.80)
-print(d.action, d.net_benefit)
-"
-
-# Federated learning
-python -c "
-from haiip.core.federated import FederatedLearner
-result = FederatedLearner().run(n_rounds=5, local_epochs=2)
-print(f'F1: {result.final_global_f1:.4f}, gap: {result.federated_gap:+.4f}')
-"
-
-# Human oversight
-python -c "
-from haiip.core.human_oversight import HumanOversightEngine, OversightEvent
-eng = HumanOversightEngine()
-eng.record(OversightEvent.create('d1','failure',0.8,'normal',True,True,'normal'))
-m = eng.compute_metrics()
-print(f'HIR={m.hir:.2f}, HOG={m.hog:+.4f}, TCS={m.tcs:.4f}')
-"
-
-# Notebooks
-jupyter lab notebooks/
+```
+[VibrationPublisher]  sensor_msgs/Imu  50 Hz
+        |  /haiip/vibration/{machine_id}
+        v
+[InferenceNode]       POST /api/v1/predict  (every Nth sample)
+        |  /haiip/ai/{machine_id}   label, confidence, anomaly_score
+        v
+[EconomicNode]        EconomicDecisionEngine  (in-process, <1 ms)
+        |  /haiip/decision/{machine_id}   action, net_benefit_eur
+        v
+[ActionNode]          decision + human_override -> machine command
+        |  /haiip/command/{machine_id}   STOP | SLOW_DOWN | MONITOR | NOMINAL
+        ^
+[HumanOverride]       operator console  (EU AI Act Art. 14)
+                      auto-expires after TTL, AI resumes autonomously
 ```
 
-<<<<<<< HEAD
+**With ROS2 (ros-humble / ros-jazzy):**
+```bash
+ros2 launch haiip haiip_closed_loop.launch.py machine_id:=pump-01
+ros2 launch haiip haiip_closed_loop.launch.py machine_id:=fan-01 fault_mode:=true
+
+# Human override in a separate terminal
+python -m haiip.ros2.human_override --machine pump-01 --command STOP
+```
+
+**Standalone — no ROS2 installation needed:**
+```bash
+python -m haiip.ros2.pipeline --no-api   # offline (synthetic AI scores)
+python -m haiip.ros2.pipeline            # live HAIIP API
+python -m haiip.ros2.pipeline --fault    # fault injection demo
+```
+
+**Why this matters** — this is the difference between an AI tool and a
+Human-Aligned Industrial Decision System:
+- Robot publishes vibration → AI detects anomaly → Economic engine decides repair_now vs monitor
+- Action node publishes STOP / SLOW_DOWN to the machine actuator
+- Human operator overrides at any time via the interactive console
+- Override auto-expires — AI loop resumes without operator action (Art. 14 compliant)
+
+---
+
+## EU AI Act Compliance
+
+HAIIP is classified as **Limited Risk** under EU AI Act Article 52.
+
+| Requirement | Implementation | Status |
+|-------------|---------------|--------|
+| Risk classification | `ComplianceEngine.classify_risk()` | ✅ Limited Risk |
+| Transparency (Art. 52) | Monthly `TransparencyReport` | ✅ Auto-generated |
+| Human oversight (Art. 14) | All decisions require human review option | ✅ Enforced |
+| Record keeping (Art. 12) | `AuditLog` — every decision logged | ✅ Complete |
+| Provision of information (Art. 13) | Model Card + Dataset Card + in-app disclosure | ✅ Complete |
+| GDPR data minimisation (Art. 5c) | Input features SHA-256 hashed in audit log | ✅ Privacy by design |
+| Incident reporting (Art. 73) | `detect_incidents()` — low confidence + bias | ✅ Automated |
+| Complaint procedure | In-app feedback + DPA contact | ✅ Documented |
+
+Audit log retention: **5 years** (GDPR Art. 17 balanced with AI Act Art. 12).
+
+---
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/nextindustriai/haiip.git
+cd haiip
+pip install -e ".[dev]"
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local — add GROQ_API_KEY (free at console.groq.com)
+
+# Start services
+uvicorn haiip.api.main:app --port 8000 &
+streamlit run haiip/dashboard/app.py --server.port 8501
+```
+
 **Demo mode** (no API required — works offline):
 ```bash
 streamlit run haiip/dashboard/app.py
 # Click "Try Demo" on login page
+# Or login: tenant=demo-sme  email=admin@haiip.ai  password=Demo1234!
+```
+
+**ROS2 closed-loop (no ROS2 needed):**
+```bash
+python -m haiip.ros2.pipeline --fault --no-api
 ```
 
 ---
@@ -361,8 +373,6 @@ kubectl apply -f k8s/
 
 ## Test Suite
 
-HAIIP maintains a comprehensive multi-tier test pyramid targeting 100% production-grade coverage.
-
 ```bash
 # Full test suite
 pytest haiip/tests/ -v --cov=haiip --cov-report=term-missing
@@ -381,9 +391,6 @@ pytest haiip/tests/crash/ -v
 
 # Feature tests (BDD user journeys)
 pytest haiip/tests/features/ -v
-
-# RAG hallucination tests
-pytest haiip/tests/core/test_rag_hallucination.py -v
 
 # Load tests (requires running API at localhost:8000)
 locust -f haiip/tests/load/locustfile.py \
@@ -435,7 +442,6 @@ GET  /api/v1/predictions/{id}    # Single prediction detail
 ```
 GET    /api/v1/alerts            # List alerts (filterable by severity)
 POST   /api/v1/alerts            # Create alert
-GET    /api/v1/alerts/{id}       # Single alert
 PATCH  /api/v1/alerts/{id}/acknowledge  # Acknowledge alert
 ```
 
@@ -482,7 +488,6 @@ POST /api/v1/admin/users         # Create user
 PATCH /api/v1/admin/users/{id}   # Update user
 DELETE /api/v1/admin/users/{id}  # Deactivate user
 GET  /api/v1/admin/models        # Model registry
-POST /api/v1/admin/models/{id}/activate  # Activate model version
 GET  /api/v1/admin/stats         # System statistics
 GET  /api/v1/audit               # EU AI Act audit log
 ```
@@ -516,7 +521,6 @@ See [docs/DATASET_CARD.md](docs/DATASET_CARD.md) for full datasheets.
 | Trust Calibration (Phase 6) | Simulated oversight | TCS (1−ECE) | ≥0.80 | ≥0.70 |
 
 See [docs/MODEL_CARD.md](docs/MODEL_CARD.md) for full model card including bias analysis.
-See [docs/EXPERIMENTAL_BRANCH.md](docs/EXPERIMENTAL_BRANCH.md) for Phase 6 research metrics.
 
 ---
 
@@ -539,17 +543,14 @@ This project is a Centria RDI deliverable. The following artifacts are available
 | Phase 6 Load Tests | `haiip/tests/load/locustfile_phase6.py` | Economic AI + Agent SLA |
 | Economic AI Notebook | `notebooks/01_economic_decision.ipynb` | Decision boundary + fleet ROI |
 | Federated Learning Notebook | `notebooks/02_federated_learning.ipynb` | FedAvg learning curve + gap analysis |
+| ROS2 Pipeline | `haiip/ros2/pipeline.py` | Closed-loop robotic automation |
 | K8s Manifests | `k8s/` | Production Kubernetes deployment |
 | Helm Chart | `helm/haiip/` | Parameterised deployment chart |
 | Terraform IaC | `terraform/` | AWS EKS + RDS + ElastiCache |
 
-=======
->>>>>>> 608b5de6889868aad6ac9248273448f7af13815b
 ---
 
 ## Citation
-
-If using Phase 6 experimental features in research, please cite:
 
 ```bibtex
 @techreport{haiip2025,
