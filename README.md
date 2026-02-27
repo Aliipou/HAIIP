@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # HAIIP — Human-Aligned Industrial Intelligence Platform
 Demo video : https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO
 [![CI](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml/badge.svg)](https://github.com/nextindustriai/haiip/actions/workflows/ci.yml)
