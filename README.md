@@ -38,24 +38,6 @@ HAIIP gives an SME a deployable system that:
 
 ---
 
-## Demo
-
-The 5-minute demo shows a complete fault detection cycle:
-
-| Time | What Happens |
-|------|-------------|
-| 0:00 | Login -> dashboard loads with live sensor data |
-| 0:30 | Fault injected on CNC-001 — vibration rises |
-| 1:15 | AI alert: *Heat Dissipation Failure, 87% confidence* with SHAP explanation |
-| 2:00 | RAG retrieves relevant manual section automatically |
-| 2:30 | Operator rejects alert — confidence adjusts from 87% to 61% |
-| 3:00 | Grafana: adoption curve, drift PSI, ROI panel |
-| 4:15 | GitHub Actions: all checks green, Trivy: 0 critical CVEs |
-
-**[Watch demo (5 min)](https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO)**
-
----
-
 ## Architecture
 
 ```
