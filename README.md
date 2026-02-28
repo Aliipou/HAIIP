@@ -16,7 +16,7 @@
 
 ---
 
-### [Watch 5-Minute Demo](https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO) · [API Docs](http://localhost:8000/api/docs) · [Model Card](docs/MODEL_CARD.md) · [Dataset Card](docs/DATASET_CARD.md)
+### [Watch  Demo](https://1drv.ms/v/c/5978203504f409d5/IQALgoMRTYgqT6l8gsL6-nnQAXSjb32DH33UhkqUrdpd3fA?e=sneUNO) · [API Docs](http://localhost:8000/api/docs) · [Model Card](docs/MODEL_CARD.md) · [Dataset Card](docs/DATASET_CARD.md)
 
 </div>
 
