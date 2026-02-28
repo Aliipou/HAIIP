@@ -365,11 +365,113 @@ jobs:
           name: coverage-html
           path: htmlcov/
 
+  # ── 9b. Robustness tests (network faults, data quality guards) ───────────
+  robustness-tests:
+    name: Robustness Tests (Network Faults)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio pytest-timeout \
+            scikit-learn numpy structlog
+
+      - name: Run robustness tests
+        run: |
+          pytest haiip/tests/robustness/ \
+            -v --tb=short --timeout=60
+        env:
+          HAIIP_APP_ENV: testing
+
+  # ── 9c. ML rigor tests ────────────────────────────────────────────────────
+  ml-rigor-tests:
+    name: ML Rigor Tests (Determinism / Calibration / Fairness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest pytest-asyncio joblib \
+            scikit-learn numpy scipy structlog
+
+      - name: Run ML rigor tests
+        run: |
+          pytest haiip/tests/core/test_ml_rigor.py \
+            -v --tb=short
+        env:
+          HAIIP_APP_ENV: testing
+
+  # ── 9d. Economic calibration tests ───────────────────────────────────────
+  economic-calibration-tests:
+    name: Economic Calibration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest numpy pandas scikit-learn structlog
+
+      - name: Run economic calibration tests
+        run: |
+          pytest haiip/tests/core/test_economic_calibration.py \
+            -v --tb=short
+        env:
+          HAIIP_APP_ENV: testing
+
+  # ── 9e. Oversight simulation tests ───────────────────────────────────────
+  oversight-simulation-tests:
+    name: Oversight Simulation Tests (Assumption Citations)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]" || pip install \
+            pytest numpy structlog
+
+      - name: Run oversight simulation tests
+        run: |
+          pytest haiip/tests/core/test_oversight_simulation.py \
+            -v --tb=short
+        env:
+          HAIIP_APP_ENV: testing
+
   # ── Final gate ───────────────────────────────────────────────────────────
   ci-gate:
     name: CI Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint, security, unit-tests, api-tests, integration-tests, security-tests, crash-tests]
+    needs: [lint, security, unit-tests, api-tests, integration-tests, security-tests, crash-tests, robustness-tests, ml-rigor-tests, economic-calibration-tests, oversight-simulation-tests]
     if: always()
     steps:
       - name: Check all jobs passed

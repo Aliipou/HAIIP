@@ -55,3 +55,8 @@ docker-compose.override.yml
 # Notebooks (outputs only)
 notebooks/**/*.ipynb
 !notebooks/README.md
+"haiip_dev.db" 
+"haiip_dev.db-shm" 
+"haiip_dev.db-wal" 
+".pytest_cache/" 
+".coverage" 
