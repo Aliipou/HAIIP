@@ -1,0 +1,18 @@
+{
+  "model_name": "BearingFaultClassifier",
+  "version": "1.0.0",
+  "algorithm": "RandomForestClassifier",
+  "features": [
+    "rms",
+    "peak_to_peak",
+    "kurtosis",
+    "crest_factor",
+    "temperature",
+    "rpm"
+  ],
+  "n_estimators": 200,
+  "test_f1": 0.8108108108108109,
+  "test_auc": 0.9909999174304351,
+  "trained_on": "2024-01-01",
+  "framework": "scikit-learn 1.5"
+}
