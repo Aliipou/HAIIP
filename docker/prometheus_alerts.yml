@@ -1,0 +1,192 @@
+groups:
+  # ── API Availability ──────────────────────────────────────────────────────────
+  - name: haiip.api.availability
+    interval: 30s
+    rules:
+      - alert: HAIIPApiDown
+        expr: up{job="haiip-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "HAIIP API is down"
+          description: "The HAIIP FastAPI service has been unreachable for more than 1 minute."
+          runbook: "https://github.com/Aliipou/HAIIP/docs/runbooks/api-down.md"
+
+      - alert: HAIIPApiHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="haiip-api", status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="haiip-api"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "HAIIP API error rate above 5%"
+          description: "5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: HAIIPApiHighErrorRateWarning
+        expr: |
+          sum(rate(http_requests_total{job="haiip-api", status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="haiip-api"}[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "HAIIP API error rate above 1%"
+          description: "5xx error rate is {{ $value | humanizePercentage }}."
+
+  # ── API Latency ───────────────────────────────────────────────────────────────
+  - name: haiip.api.latency
+    interval: 30s
+    rules:
+      - alert: HAIIPApiHighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="haiip-api"}[5m])) by (le)
+          ) * 1000 > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "HAIIP API P95 latency above 500ms"
+          description: "P95 latency is {{ $value | humanize }}ms (SLA: 500ms)."
+
+      - alert: HAIIPApiHighLatencyP99Critical
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job="haiip-api"}[5m])) by (le)
+          ) * 1000 > 2000
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "HAIIP API P99 latency above 2s"
+          description: "P99 latency is {{ $value | humanize }}ms — degraded service."
+
+  # ── ML Predictions ────────────────────────────────────────────────────────────
+  - name: haiip.ml.predictions
+    interval: 60s
+    rules:
+      - alert: HAIIPHighAnomalyRate
+        expr: |
+          sum(rate(haiip_predictions_total{label="anomaly"}[10m]))
+          /
+          sum(rate(haiip_predictions_total[10m])) > 0.25
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "HAIIP anomaly rate above 25%"
+          description: >
+            Anomaly rate is {{ $value | humanizePercentage }} — possible sensor fault,
+            model drift, or data quality issue. Investigate immediately.
+
+      - alert: HAIIPNoPredictionsRecent
+        expr: sum(increase(haiip_predictions_total[10m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "No predictions in the last 10 minutes"
+          description: "Either no sensors are streaming or the prediction pipeline is stuck."
+
+      - alert: HAIIPLowModelConfidence
+        expr: haiip_prediction_confidence_avg < 0.6
+        for: 10m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Average model confidence below 60%"
+          description: "Model confidence is {{ $value | humanize }} — model may need retraining."
+
+  # ── Drift Detection ────────────────────────────────────────────────────────────
+  - name: haiip.ml.drift
+    interval: 60s
+    rules:
+      - alert: HAIIPDriftPSICritical
+        expr: haiip_drift_psi > 0.25
+        for: 5m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "Model drift: PSI critical (> 0.25)"
+          description: >
+            PSI is {{ $value | humanize }} — model is significantly out of distribution.
+            Automatic retraining should trigger; verify Celery worker is healthy.
+
+      - alert: HAIIPDriftPSIWarning
+        expr: haiip_drift_psi > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Model drift: PSI elevated (> 0.10)"
+          description: "PSI is {{ $value | humanize }} — monitor for further drift."
+
+  # ── Economic Decision Engine ───────────────────────────────────────────────────
+  - name: haiip.economic
+    interval: 60s
+    rules:
+      - alert: HAIIPRepairNowSpiking
+        expr: |
+          sum(rate(haiip_economic_decisions_total{action="REPAIR_NOW"}[10m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: operations
+        annotations:
+          summary: "High REPAIR_NOW decision rate"
+          description: >
+            REPAIR_NOW rate is {{ $value | humanize }}/s — multiple machines
+            may be in critical condition. Review fleet dashboard.
+
+      - alert: HAIIPHumanInterventionRateOutOfBand
+        expr: haiip_human_intervention_rate < 0.05 or haiip_human_intervention_rate > 0.20
+        for: 15m
+        labels:
+          severity: warning
+          team: operations
+        annotations:
+          summary: "Human Intervention Rate (HIR) out of target band (5–20%)"
+          description: >
+            HIR is {{ $value | humanizePercentage }}.
+            Below 5%: operators may not be engaged. Above 20%: AI confidence too low.
+
+  # ── Infrastructure ────────────────────────────────────────────────────────────
+  - name: haiip.infrastructure
+    interval: 30s
+    rules:
+      - alert: HAIIPHighMemory
+        expr: process_resident_memory_bytes{job="haiip-api"} > 1.5e9
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "HAIIP API memory above 1.5 GB"
+          description: "RSS is {{ $value | humanize1024 }}B — investigate for memory leak."
+
+      - alert: HAIIPRateLimitHigh
+        expr: |
+          sum(rate(http_requests_total{job="haiip-api", status_code="429"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Rate limit rejections above 0.5/s"
+          description: >
+            Rate limiting is firing at {{ $value | humanize }}/s —
+            possible brute-force or runaway client.

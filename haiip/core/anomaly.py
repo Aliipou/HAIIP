@@ -157,10 +157,11 @@ class AnomalyDetector:
 
     def predict_batch(self, X: np.ndarray) -> list[dict[str, Any]]:
         """Predict anomaly for multiple readings at once."""
-        if not self._is_fitted:
-            return [self._untrained_result(row.tolist()) for row in np.asarray(X)]
-
         arr = np.asarray(X, dtype=np.float64)
+        if len(arr) == 0:
+            return []
+        if not self._is_fitted:
+            return [self._untrained_result(row.tolist()) for row in arr]
         arr_scaled = self._scaler.transform(arr)
 
         predictions = self._model.predict(arr_scaled)
