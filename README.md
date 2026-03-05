@@ -573,6 +573,65 @@ print(f'Federated F1: {r.final_global_f1:.4f}  gap: {r.federated_gap:+.4f}')
 
 ---
 
+## Production Hardening
+
+HAIIP ships with a security and production layer ready for industrial deployment. Every item below is implemented — not planned.
+
+### Security
+
+| Control | Implementation | Location |
+|---------|---------------|----------|
+| Rate limiting | Per-IP sliding window — 10 logins/min, 60 predictions/min, 20 agent/min | `haiip/api/middleware.py` |
+| Security headers | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Permissions-Policy | `haiip/api/middleware.py` |
+| Body size limit | 10 MB hard cap — rejects oversized requests before route handler | `haiip/api/middleware.py` |
+| RBAC | Three roles: admin / engineer / viewer — enforced at every route | `haiip/api/deps.py` |
+| JWT rotation | 30 min access + 7 day refresh, HS256 | `haiip/api/auth.py` |
+| PII scrubbing | Passwords, tokens, emails → `[REDACTED]` in all structured logs | `haiip/api/middleware.py` |
+| IP privacy | Client IPs SHA-256 hashed before logging (GDPR minimisation) | `haiip/api/middleware.py` |
+| Secrets | Never in code — all keys in `.env.local` (gitignored) | `.env.example` |
+
+### NGINX + TLS
+
+Production NGINX config at `nginx/haiip.conf` provides:
+- HTTP → HTTPS redirect (301)
+- TLS 1.2/1.3 only, OCSP stapling, 2-year HSTS with preload
+- Upstream rate limiting mirroring API limits (`limit_req_zone`)
+- WebSocket proxying for Streamlit (`/_stcore/stream`)
+- `/metrics` restricted to internal network (`10.0.0.0/8`)
+- `client_max_body_size 10M` aligned with API middleware
+
+```bash
+# Install cert (replace YOUR_DOMAIN)
+certbot certonly --nginx -d YOUR_DOMAIN
+
+# Edit nginx/haiip.conf — replace YOUR_DOMAIN
+# Deploy
+sudo cp nginx/haiip.conf /etc/nginx/sites-enabled/haiip.conf
+nginx -t && systemctl reload nginx
+```
+
+### SHAP Explainability
+
+Every anomaly prediction now optionally includes SHAP feature attributions alongside z-scores:
+
+```python
+detector = AnomalyDetector()
+detector.fit(normal_data)
+result = detector.predict([298.1, 308.6, 1551, 42.8, 0])
+
+# result["explanation"]  — z-scores for features |z| > 1.5 (always present)
+# result["shap_values"]  — SHAP TreeExplainer values (present when shap is installed)
+# {
+#   "torque": 0.0312,       # SHAP: positive = pushed toward anomaly
+#   "tool_wear": -0.0041,
+#   ...
+# }
+```
+
+SHAP is computed with a cached `TreeExplainer` (built once after `fit()`). Batch predictions compute all SHAP values in a single vectorised call. Falls back gracefully to z-score explanation if `shap` is not installed.
+
+---
+
 ## Datasets
 
 | Dataset | Source | License | Used For |

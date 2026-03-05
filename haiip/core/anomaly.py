@@ -60,6 +60,7 @@ class AnomalyDetector:
             n_jobs=-1,
         )
         self._is_fitted = False
+        self._shap_explainer: Any = None  # lazy-loaded after fit()
 
     # ── Training ──────────────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ class AnomalyDetector:
         X_scaled = self._scaler.fit_transform(X_arr)
         self._model.fit(X_scaled)
         self._is_fitted = True
+        self._shap_explainer = None  # reset; will be built on first predict()
         logger.info(
             "AnomalyDetector fitted: n_samples=%d, n_features=%d",
             X_arr.shape[0],
@@ -143,11 +145,14 @@ class AnomalyDetector:
             if abs(z) > 1.5  # only show features that contributed significantly
         }
 
+        shap_vals = self._shap_values_for(arr_scaled)
+
         return {
             "label": label,
             "confidence": round(confidence, 4),
             "anomaly_score": round(normalized_score, 4),
             "explanation": explanation,
+            **({"shap_values": shap_vals} if shap_vals is not None else {}),
         }
 
     def predict_batch(self, X: np.ndarray) -> list[dict[str, Any]]:
@@ -160,6 +165,22 @@ class AnomalyDetector:
 
         predictions = self._model.predict(arr_scaled)
         scores = self._model.score_samples(arr_scaled)
+
+        # Batch SHAP: compute all at once (more efficient than per-sample)
+        batch_shap: list[dict[str, float] | None] = [None] * len(predictions)
+        if self._shap_explainer is None:
+            self._build_shap_explainer()
+        if self._shap_explainer is not None:
+            try:
+                import shap  # type: ignore[import]
+                sv = self._shap_explainer.shap_values(arr_scaled, check_additivity=False)
+                for i in range(len(predictions)):
+                    batch_shap[i] = {
+                        name: round(float(val), 4)
+                        for name, val in zip(self.feature_names, sv[i])
+                    }
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Batch SHAP failed: %s", exc)
 
         results = []
         for i, (pred, score) in enumerate(zip(predictions, scores)):
@@ -176,12 +197,15 @@ class AnomalyDetector:
                 for name, z in zip(self.feature_names, z_scores)
                 if abs(z) > 1.5
             }
-            results.append({
+            entry: dict[str, Any] = {
                 "label": label,
                 "confidence": round(confidence, 4),
                 "anomaly_score": round(normalized, 4),
                 "explanation": explanation,
-            })
+            }
+            if batch_shap[i] is not None:
+                entry["shap_values"] = batch_shap[i]
+            results.append(entry)
         return results
 
     # ── Persistence ───────────────────────────────────────────────────────────
@@ -215,6 +239,40 @@ class AnomalyDetector:
         detector.feature_names = DEFAULT_FEATURE_NAMES
         logger.info("AnomalyDetector loaded from %s", path)
         return detector
+
+    # ── SHAP explainability ────────────────────────────────────────────────────
+
+    def _build_shap_explainer(self) -> None:
+        """Lazily build a SHAP TreeExplainer for the fitted IsolationForest.
+
+        Only called once; silently skipped if shap is not installed.
+        """
+        try:
+            import shap  # type: ignore[import]
+            self._shap_explainer = shap.TreeExplainer(self._model)
+            logger.debug("SHAP TreeExplainer built")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SHAP not available — z-score explanation only: %s", exc)
+            self._shap_explainer = None
+
+    def _shap_values_for(self, arr_scaled: np.ndarray) -> dict[str, float] | None:
+        """Return per-feature SHAP values dict, or None if unavailable."""
+        if self._shap_explainer is None:
+            self._build_shap_explainer()
+        if self._shap_explainer is None:
+            return None
+        try:
+            import shap  # type: ignore[import]
+            sv = self._shap_explainer.shap_values(arr_scaled, check_additivity=False)
+            # sv shape: (n_samples, n_features) — IsolationForest returns a 2-D array
+            if hasattr(sv, "__len__") and len(sv) == arr_scaled.shape[0]:
+                return {
+                    name: round(float(val), 4)
+                    for name, val in zip(self.feature_names, sv[0])
+                }
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SHAP inference failed: %s", exc)
+        return None
 
     # ── Internals ─────────────────────────────────────────────────────────────
 
