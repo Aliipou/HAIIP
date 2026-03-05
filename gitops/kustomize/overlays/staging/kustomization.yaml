@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: haiip-staging
+
+bases:
+  - ../../base
+
+namePrefix: staging-
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+      name: haiip-api
+
+configMapGenerator:
+  - name: haiip-config
+    behavior: merge
+    literals:
+      - APP_ENV=staging
+      - LOG_LEVEL=INFO
+
+images:
+  - name: haiip-api
+    newName: ghcr.io/aliipou/haiip-api
+    newTag: staging
+  - name: haiip-worker
+    newName: ghcr.io/aliipou/haiip-worker
+    newTag: staging

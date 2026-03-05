@@ -1,0 +1,19 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: haiip-api-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: haiip-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: haiip-worker-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: haiip-worker

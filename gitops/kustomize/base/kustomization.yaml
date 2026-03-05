@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: haiip
+
+resources:
+  - ../../../k8s/deployment.yaml
+  - ../../../k8s/service.yaml
+  - ../../../k8s/ingress.yaml
+  - ../../../k8s/hpa.yaml
+  - configmap.yaml
+  - pdb.yaml
+
+commonLabels:
+  app.kubernetes.io/name: haiip
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: haiip-api
+    newName: ghcr.io/aliipou/haiip-api
+    newTag: latest
+  - name: haiip-worker
+    newName: ghcr.io/aliipou/haiip-worker
+    newTag: latest
+  - name: haiip-dashboard
+    newName: ghcr.io/aliipou/haiip-dashboard
+    newTag: latest

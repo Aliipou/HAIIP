@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: haiip
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: haiip
+    app.kubernetes.io/part-of: nextindustriai
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: haiip-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: haiip-alerts
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Aliipou/HAIIP.git
+    targetRevision: HEAD
+    path: gitops/kustomize/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: haiip-prod
+  syncPolicy:
+    automated:
+      prune: true          # remove resources deleted from git
+      selfHeal: true       # revert manual cluster changes
+      allowEmpty: false    # never sync to empty state
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas   # HPA manages replicas
+  info:
+    - name: Docs
+      value: https://github.com/Aliipou/HAIIP/blob/main/README.md
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: haiip-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Aliipou/HAIIP.git
+    targetRevision: HEAD
+    path: gitops/kustomize/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: haiip-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  revisionHistoryLimit: 5
