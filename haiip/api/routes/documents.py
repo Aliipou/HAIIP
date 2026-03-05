@@ -133,8 +133,8 @@ async def document_stats(current_user: CurrentUser) -> dict:
     }
 
 
-@router.delete("/documents", status_code=status.HTTP_204_NO_CONTENT)
-async def clear_documents(current_user: EngineerUser) -> None:
+@router.delete("/documents", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+async def clear_documents(current_user: EngineerUser):
     """Clear all documents from the knowledge base. Engineers+ only."""
     global _rag_engine
     _rag_engine = None  # Reset — will reinitialize on next request

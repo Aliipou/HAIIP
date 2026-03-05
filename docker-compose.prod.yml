@@ -1,0 +1,123 @@
+# HAIIP — Production override: PostgreSQL streaming replication + pgBouncer
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# What this adds on top of docker-compose.yml:
+#   - db-primary:  PostgreSQL 16 primary (write endpoint)
+#   - db-replica:  PostgreSQL 16 streaming replica (read endpoint)
+#   - pgbouncer:   Connection pooler — all app connections go through :5433
+#
+# Environment variables required (.env.local):
+#   POSTGRES_PASSWORD       — main DB password
+#   POSTGRES_REPLICATION_PASSWORD — replication user password
+#   PGBOUNCER_POOL_SIZE     — default 20
+
+version: "3.11"
+
+services:
+  # ── Override: disable the simple single db service ──────────────────────────
+  db:
+    deploy:
+      replicas: 0
+
+  # ── PostgreSQL Primary ───────────────────────────────────────────────────────
+  db-primary:
+    image: bitnami/postgresql:16
+    container_name: haiip_db_primary
+    environment:
+      POSTGRESQL_USERNAME: haiip
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: haiip
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD}
+      # Tuning for production
+      POSTGRESQL_MAX_CONNECTIONS: "200"
+      POSTGRESQL_SHARED_BUFFERS: "256MB"
+      POSTGRESQL_EFFECTIVE_CACHE_SIZE: "768MB"
+      POSTGRESQL_WAL_LEVEL: replica
+      POSTGRESQL_MAX_WAL_SENDERS: "3"
+      POSTGRESQL_WAL_KEEP_SIZE: "128"
+    volumes:
+      - postgres_primary_data:/bitnami/postgresql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haiip -d haiip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PostgreSQL Replica (streaming replication) ───────────────────────────────
+  db-replica:
+    image: bitnami/postgresql:16
+    container_name: haiip_db_replica
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD}
+      POSTGRESQL_MASTER_HOST: db-primary
+      POSTGRESQL_MASTER_PORT_NUMBER: "5432"
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_MAX_CONNECTIONS: "100"
+    volumes:
+      - postgres_replica_data:/bitnami/postgresql
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U replicator"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── pgBouncer — connection pooler ────────────────────────────────────────────
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    container_name: haiip_pgbouncer
+    environment:
+      POSTGRESQL_HOST: db-primary
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: haiip
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: haiip
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "${PGBOUNCER_POOL_SIZE:-20}"
+      PGBOUNCER_MIN_POOL_SIZE: "5"
+      PGBOUNCER_RESERVE_POOL_SIZE: "5"
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: "600"
+      PGBOUNCER_LOG_CONNECTIONS: "0"
+      PGBOUNCER_LOG_DISCONNECTIONS: "0"
+    ports:
+      - "5433:5432"
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U haiip"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Override: API connects through pgBouncer ─────────────────────────────────
+  api:
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://haiip:${POSTGRES_PASSWORD}@pgbouncer:5432/haiip
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+
+  worker:
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://haiip:${POSTGRES_PASSWORD}@pgbouncer:5432/haiip
+    depends_on:
+      - pgbouncer
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:

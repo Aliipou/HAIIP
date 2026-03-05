@@ -227,12 +227,13 @@ async def update_user_admin(
     )
 
 
-@router.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
+               response_model=None)
 async def deactivate_user(
     user_id: str,
     current_user: AdminUser,
     db: DB,
-) -> None:
+):
     """Soft-delete (deactivate) a user. Does not delete DB record — preserves audit trail."""
     if user_id == current_user.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot deactivate your own account")

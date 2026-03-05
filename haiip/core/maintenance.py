@@ -76,6 +76,8 @@ class MaintenancePredictor:
         )
         self._is_fitted = False
         self._classes: list[str] = FAILURE_MODES
+        self._shap_clf_explainer: Any = None   # lazy-loaded after fit()
+        self._shap_rul_explainer: Any = None   # lazy-loaded after fit()
 
     # ── Training ──────────────────────────────────────────────────────────────
 
@@ -106,6 +108,9 @@ class MaintenancePredictor:
             self._rul_fitted = False
 
         self._is_fitted = True
+        # Reset SHAP explainers — must rebuild after refit
+        self._shap_clf_explainer = None
+        self._shap_rul_explainer = None
         logger.info(
             "MaintenancePredictor fitted: n_samples=%d, classes=%s",
             X_arr.shape[0],
@@ -169,7 +174,10 @@ class MaintenancePredictor:
         normal_idx = self._classes.index("no_failure") if "no_failure" in self._classes else -1
         failure_proba = 1.0 - float(proba[normal_idx]) if normal_idx >= 0 else pred_proba
 
-        return {
+        shap_clf = self._shap_for_prediction(arr_scaled, pred_idx)
+        shap_rul = self._shap_rul_for(arr_scaled)
+
+        result: dict[str, Any] = {
             "label": pred_label,
             "confidence": round(pred_proba, 4),
             "failure_probability": round(failure_proba, 4),
@@ -183,6 +191,11 @@ class MaintenancePredictor:
                 "failure_mode": pred_label,
             },
         }
+        if shap_clf is not None:
+            result["shap_values"] = shap_clf
+        if shap_rul is not None:
+            result["shap_rul_values"] = shap_rul
+        return result
 
     def predict_batch(self, X: np.ndarray) -> list[dict[str, Any]]:
         """Predict failure mode for multiple readings."""
@@ -257,6 +270,64 @@ class MaintenancePredictor:
 
         logger.info("MaintenancePredictor loaded from %s", path)
         return predictor
+
+    # ── SHAP explainability ────────────────────────────────────────────────────
+
+    def _build_shap_explainers(self) -> None:
+        """Lazily build SHAP TreeExplainers for classifier (and RUL regressor if fitted)."""
+        try:
+            import shap  # type: ignore[import]
+            self._shap_clf_explainer = shap.TreeExplainer(self._classifier)
+            if hasattr(self, "_rul_fitted") and self._rul_fitted:
+                self._shap_rul_explainer = shap.TreeExplainer(self._rul_regressor)
+            logger.debug("MaintenancePredictor: SHAP explainers built")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SHAP not available for MaintenancePredictor: %s", exc)
+            self._shap_clf_explainer = None
+            self._shap_rul_explainer = None
+
+    def _shap_for_prediction(
+        self, arr_scaled: np.ndarray, pred_class_idx: int
+    ) -> dict[str, float] | None:
+        """Return SHAP values for the predicted failure class."""
+        if self._shap_clf_explainer is None:
+            self._build_shap_explainers()
+        if self._shap_clf_explainer is None:
+            return None
+        try:
+            sv = self._shap_clf_explainer.shap_values(arr_scaled, check_additivity=False)
+            # Multi-class GBM: sv is list[array] where sv[class_idx] has shape (n, features)
+            if isinstance(sv, list) and len(sv) > pred_class_idx:
+                class_sv = sv[pred_class_idx][0]
+            elif hasattr(sv, "ndim") and sv.ndim == 3:
+                class_sv = sv[0, pred_class_idx, :]
+            else:
+                return None
+            return {
+                name: round(float(val), 4)
+                for name, val in zip(self.feature_names, class_sv)
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SHAP clf inference failed: %s", exc)
+            return None
+
+    def _shap_rul_for(self, arr_scaled: np.ndarray) -> dict[str, float] | None:
+        """Return SHAP values for RUL regressor."""
+        if not (hasattr(self, "_rul_fitted") and self._rul_fitted):
+            return None
+        if self._shap_rul_explainer is None:
+            self._build_shap_explainers()
+        if self._shap_rul_explainer is None:
+            return None
+        try:
+            sv = self._shap_rul_explainer.shap_values(arr_scaled, check_additivity=False)
+            return {
+                name: round(float(val), 4)
+                for name, val in zip(self.feature_names, sv[0])
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SHAP RUL inference failed: %s", exc)
+            return None
 
     # ── Internals ─────────────────────────────────────────────────────────────
 
