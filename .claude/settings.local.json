@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(PYTHONPATH=. python:*)",
-      "Bash(python:*)",
-      "Bash(pip:*)"
-    ]
-  }
-}

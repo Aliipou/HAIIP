@@ -60,3 +60,4 @@ notebooks/**/*.ipynb
 "haiip_dev.db-wal" 
 ".pytest_cache/" 
 ".coverage" 
+.claude/ 
