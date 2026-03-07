@@ -61,3 +61,4 @@ notebooks/**/*.ipynb
 ".pytest_cache/" 
 ".coverage" 
 .claude/ 
+.claude/ 
