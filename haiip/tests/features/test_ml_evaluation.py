@@ -22,21 +22,23 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-
 # ── Test data factories ───────────────────────────────────────────────────────
+
 
 def make_normal_data(n: int = 200, seed: int = 42) -> list[list[float]]:
     """Generate synthetic normal (non-anomalous) industrial sensor data."""
     rng = np.random.RandomState(seed)
     data = []
     for _ in range(n):
-        data.append([
-            float(rng.normal(298.0, 2.0)),   # air_temperature
-            float(rng.normal(308.0, 1.5)),   # process_temperature
-            float(rng.normal(1500, 50)),      # rotational_speed
-            float(rng.normal(40.0, 3.0)),     # torque
-            float(rng.uniform(0, 50)),         # tool_wear
-        ])
+        data.append(
+            [
+                float(rng.normal(298.0, 2.0)),  # air_temperature
+                float(rng.normal(308.0, 1.5)),  # process_temperature
+                float(rng.normal(1500, 50)),  # rotational_speed
+                float(rng.normal(40.0, 3.0)),  # torque
+                float(rng.uniform(0, 50)),  # tool_wear
+            ]
+        )
     return data
 
 
@@ -45,22 +47,26 @@ def make_anomaly_data(n: int = 20, seed: int = 99) -> list[list[float]]:
     rng = np.random.RandomState(seed)
     data = []
     for _ in range(n):
-        data.append([
-            float(rng.normal(340.0, 5.0)),   # elevated temperature
-            float(rng.normal(355.0, 4.0)),   # elevated process temp
-            float(rng.normal(2200, 100)),     # high rotational speed
-            float(rng.normal(70.0, 8.0)),    # high torque
-            float(rng.uniform(200, 250)),     # extreme tool wear
-        ])
+        data.append(
+            [
+                float(rng.normal(340.0, 5.0)),  # elevated temperature
+                float(rng.normal(355.0, 4.0)),  # elevated process temp
+                float(rng.normal(2200, 100)),  # high rotational speed
+                float(rng.normal(70.0, 8.0)),  # high torque
+                float(rng.uniform(200, 250)),  # extreme tool wear
+            ]
+        )
     return data
 
 
 # ── Anomaly Detector Evaluation ───────────────────────────────────────────────
 
+
 class TestAnomalyDetectorPerformance:
     @pytest.fixture
     def trained_detector(self):
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector(contamination=0.05, random_state=42)
         normal_data = make_normal_data(300)
         detector.fit(normal_data)
@@ -115,6 +121,7 @@ class TestAnomalyDetectorPerformance:
     def test_detector_reproducible_with_same_seed(self):
         """Same data + same random_state → identical predictions."""
         from haiip.core.anomaly import AnomalyDetector
+
         data = make_normal_data(100)
         test_sample = [298.0, 308.0, 1500.0, 40.0, 5.0]
 
@@ -150,6 +157,7 @@ class TestAnomalyDetectorPerformance:
 
     def test_untrained_detector_returns_safe_default(self):
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector()
         result = detector.predict([1.0, 2.0, 3.0, 4.0, 5.0])
         assert result is not None
@@ -157,6 +165,7 @@ class TestAnomalyDetectorPerformance:
 
 
 # ── Maintenance Predictor Evaluation ─────────────────────────────────────────
+
 
 class TestMaintenancePredictorPerformance:
     @pytest.fixture
@@ -167,7 +176,7 @@ class TestMaintenancePredictorPerformance:
         rng = np.random.RandomState(42)
 
         X, y_failure, y_rul = [], [], []
-        for i in range(200):
+        for _i in range(200):
             wear = rng.uniform(0, 240)
             temp = rng.normal(298.0 + wear * 0.2, 2.0)
             speed = rng.normal(1500, 100)
@@ -242,6 +251,7 @@ class TestMaintenancePredictorPerformance:
 
     def test_untrained_predictor_returns_safe_default(self):
         from haiip.core.maintenance import MaintenancePredictor
+
         predictor = MaintenancePredictor()
         result = predictor.predict([298.0, 308.0, 1500.0, 40.0, 5.0])
         assert result is not None
@@ -249,6 +259,7 @@ class TestMaintenancePredictorPerformance:
 
 
 # ── Drift Detector Evaluation ─────────────────────────────────────────────────
+
 
 class TestDriftDetectorPerformance:
     def test_no_drift_on_identical_distributions(self):
@@ -350,21 +361,21 @@ class TestDriftDetectorPerformance:
 
 # ── Confidence Calibration ────────────────────────────────────────────────────
 
+
 class TestConfidenceCalibration:
     """
     A well-calibrated model: when it says 80% confidence, it should be
     right ~80% of the time. ECE (Expected Calibration Error) measures this.
     """
 
-    def _compute_ece(self, confidences: list[float], is_correct: list[bool], n_bins: int = 10) -> float:
+    def _compute_ece(
+        self, confidences: list[float], is_correct: list[bool], n_bins: int = 10
+    ) -> float:
         bins = np.linspace(0, 1, n_bins + 1)
         ece = 0.0
         n = len(confidences)
         for i in range(n_bins):
-            in_bin = [
-                j for j in range(n)
-                if bins[i] <= confidences[j] < bins[i + 1]
-            ]
+            in_bin = [j for j in range(n) if bins[i] <= confidences[j] < bins[i + 1]]
             if in_bin:
                 avg_conf = np.mean([confidences[j] for j in in_bin])
                 avg_acc = np.mean([float(is_correct[j]) for j in in_bin])
@@ -394,6 +405,7 @@ class TestConfidenceCalibration:
 
 
 # ── Feedback Engine Evaluation ────────────────────────────────────────────────
+
 
 class TestFeedbackEngineEvaluation:
     def test_accuracy_reflects_correct_feedback(self):
@@ -453,6 +465,7 @@ class TestFeedbackEngineEvaluation:
     def test_no_retraining_with_no_data(self):
         """Empty engine should not trigger retraining."""
         from haiip.core.feedback import FeedbackEngine
+
         engine = FeedbackEngine()
         state = engine.get_state()
         assert not state.needs_retraining
@@ -460,6 +473,7 @@ class TestFeedbackEngineEvaluation:
     def test_record_returns_state(self):
         """record() should return FeedbackEngineState."""
         from haiip.core.feedback import FeedbackEngine, FeedbackEngineState
+
         engine = FeedbackEngine()
         state = engine.record("p1", was_correct=True)
         assert isinstance(state, FeedbackEngineState)
@@ -467,6 +481,7 @@ class TestFeedbackEngineEvaluation:
     def test_confidence_adjustment(self):
         """adjust_confidence() should return valid probability."""
         from haiip.core.feedback import FeedbackEngine
+
         engine = FeedbackEngine(min_samples=5)
         for i in range(20):
             engine.record(f"p{i}", was_correct=True)
@@ -476,6 +491,7 @@ class TestFeedbackEngineEvaluation:
     def test_error_distribution_tracked(self):
         """Corrected labels should appear in error distribution."""
         from haiip.core.feedback import FeedbackEngine
+
         engine = FeedbackEngine()
         engine.record("p1", was_correct=False, corrected_label="TWF")
         engine.record("p2", was_correct=False, corrected_label="HDF")

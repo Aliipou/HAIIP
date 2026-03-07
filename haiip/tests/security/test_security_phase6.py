@@ -17,25 +17,22 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
 import threading
 import time
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from haiip.api.middleware import (
-    SecurityMiddleware,
-    _InMemoryRateLimiter,
     _SECURITY_HEADERS,
-    scrub_pii,
+    _InMemoryRateLimiter,
     safe_log_extra,
+    scrub_pii,
 )
 from haiip.api.token_blacklist import TokenBlacklist
 
-
 # ── 1. Rate limiting ────────────────────────────────────────────────────────────
+
 
 class TestRateLimiter:
     @pytest.fixture
@@ -91,6 +88,7 @@ class TestRateLimiter:
 
 # ── 2. PII scrubber ─────────────────────────────────────────────────────────────
 
+
 class TestPIIScrubber:
     def test_password_scrubbed(self) -> None:
         d = scrub_pii({"password": "secret123", "username": "ali"})
@@ -143,6 +141,7 @@ class TestPIIScrubber:
 
 # ── 3. Security headers ──────────────────────────────────────────────────────────
 
+
 class TestSecurityHeaders:
     def test_hsts_present(self) -> None:
         assert "Strict-Transport-Security" in _SECURITY_HEADERS
@@ -176,6 +175,7 @@ class TestSecurityHeaders:
 
 
 # ── 4. Token blacklist ──────────────────────────────────────────────────────────
+
 
 class TestTokenBlacklist:
     @pytest.fixture
@@ -212,7 +212,7 @@ class TestTokenBlacklist:
     @pytest.mark.asyncio
     async def test_different_jtis_independent(self, bl: TokenBlacklist) -> None:
         jti_revoked = str(uuid.uuid4())
-        jti_valid   = str(uuid.uuid4())
+        jti_valid = str(uuid.uuid4())
         await bl.revoke(jti_revoked, expires_in_seconds=60)
         assert await bl.is_revoked(jti_revoked)
         assert not await bl.is_revoked(jti_valid)
@@ -220,31 +220,38 @@ class TestTokenBlacklist:
 
 # ── 5. Economic endpoint input validation ────────────────────────────────────────
 
+
 class TestEconomicInputValidation:
     """Validate that economic route Pydantic schema rejects bad inputs."""
 
     def _make_valid(self) -> dict:
         return {
-            "anomaly_score":       0.5,
+            "anomaly_score": 0.5,
             "failure_probability": 0.6,
-            "confidence":          0.8,
+            "confidence": 0.8,
         }
 
     def test_anomaly_score_above_one_rejected(self) -> None:
         from pydantic import ValidationError
+
         from haiip.api.routes.economic import DecideRequest
+
         with pytest.raises(ValidationError):
             DecideRequest(**{**self._make_valid(), "anomaly_score": 1.5})
 
     def test_failure_prob_negative_rejected(self) -> None:
         from pydantic import ValidationError
+
         from haiip.api.routes.economic import DecideRequest
+
         with pytest.raises(ValidationError):
             DecideRequest(**{**self._make_valid(), "failure_probability": -0.1})
 
     def test_machine_id_injection_rejected(self) -> None:
         from pydantic import ValidationError
+
         from haiip.api.routes.economic import DecideRequest
+
         malicious_ids = [
             "'; DROP TABLE predictions; --",
             "<script>alert(1)</script>",
@@ -257,36 +264,44 @@ class TestEconomicInputValidation:
 
     def test_valid_machine_id_accepted(self) -> None:
         from haiip.api.routes.economic import DecideRequest
+
         d = DecideRequest(**{**self._make_valid(), "machine_id": "M-007"})
         assert d.machine_id == "M-007"
 
     def test_batch_empty_rejected(self) -> None:
         from pydantic import ValidationError
+
         from haiip.api.routes.economic import BatchDecideRequest
+
         with pytest.raises(ValidationError):
             BatchDecideRequest(records=[])
 
     def test_rul_negative_rejected(self) -> None:
         from pydantic import ValidationError
+
         from haiip.api.routes.economic import DecideRequest
+
         with pytest.raises(ValidationError):
             DecideRequest(**{**self._make_valid(), "rul_cycles": -1.0})
 
 
 # ── 6. Federated differential privacy ───────────────────────────────────────────
 
+
 class TestFederatedPrivacy:
     """Verify federated learning does not leak raw data."""
 
     def test_result_contains_no_raw_data(self) -> None:
         from haiip.core.federated import FederatedLearner
+
         result = FederatedLearner(random_state=42).run(n_rounds=2, local_epochs=1)
         result_dict = {
-            "rounds":         result.rounds,
-            "node_profiles":  result.node_profiles,
+            "rounds": result.rounds,
+            "node_profiles": result.node_profiles,
             "privacy_preserved": result.privacy_preserved,
         }
         import json
+
         # Serialise to string and verify no raw sensor values present
         result_str = json.dumps(result_dict, default=str)
         # Raw data arrays would be huge (>1000 chars of floats) — not present
@@ -294,15 +309,21 @@ class TestFederatedPrivacy:
 
     def test_privacy_flag_always_true(self) -> None:
         from haiip.core.federated import FederatedLearner
+
         result = FederatedLearner(random_state=0).run(n_rounds=2, local_epochs=1)
         assert result.privacy_preserved is True
 
     def test_node_params_are_aggregated_not_raw(self) -> None:
         """FedAvg output should be aggregated params, not raw node data."""
-        from haiip.core.federated import FederatedNode, FederatedServer, NodeProfile, SMENode
+        from haiip.core.federated import (
+            FederatedNode,
+            NodeProfile,
+            SMENode,
+        )
+
         profile = NodeProfile(SMENode.SME_FI, 100, 0.1, 0.2, country="FI")
-        node    = FederatedNode(profile=profile, random_state=0)
-        params  = node.local_train(global_params=None, local_epochs=1)
+        node = FederatedNode(profile=profile, random_state=0)
+        params = node.local_train(global_params=None, local_epochs=1)
         # Params should be scalar aggregates, not the full dataset
         assert "n_samples" in params
         assert len(str(params)) < 500  # aggregates are compact
@@ -310,12 +331,13 @@ class TestFederatedPrivacy:
 
 # ── 7. Concurrent rate limit stress test ─────────────────────────────────────────
 
+
 class TestConcurrentRateLimit:
     def test_concurrent_calls_respect_limit(self) -> None:
         limiter = _InMemoryRateLimiter()
-        limit   = 10
+        limit = 10
         results: list[bool] = []
-        lock    = threading.Lock()
+        lock = threading.Lock()
 
         def call() -> None:
             r = limiter.is_allowed("stress_key", limit=limit, window_seconds=60)

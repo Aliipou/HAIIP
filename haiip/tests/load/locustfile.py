@@ -21,14 +21,13 @@ SLA targets (non-blocking — locust tracks these):
 
 from __future__ import annotations
 
-import json
 import random
 from typing import Any
 
 from locust import HttpUser, between, events, task
 
-
 # ── Token cache (login once per user) ────────────────────────────────────────
+
 
 def _login(client: Any, base_url: str) -> str | None:
     """Login and return JWT access token, or None on failure."""
@@ -47,6 +46,7 @@ def _login(client: Any, base_url: str) -> str | None:
 
 
 # ── Sensor data factories ──────────────────────────────────────────────────────
+
 
 def _sensor_payload(machine_num: int) -> dict:
     return {
@@ -78,6 +78,7 @@ def _batch_payload(machine_num: int, batch_size: int = 10) -> dict:
 
 
 # ── Load test users ───────────────────────────────────────────────────────────
+
 
 class NormalUser(HttpUser):
     """Simulates a typical mixed-workload user (operator + engineer)."""
@@ -167,6 +168,7 @@ class NormalUser(HttpUser):
     def submit_feedback(self) -> None:
         """Submit random feedback (may fail if prediction ID doesn't exist)."""
         import uuid
+
         payload = {
             "prediction_id": str(uuid.uuid4()),
             "was_correct": random.choice([True, False]),
@@ -246,11 +248,17 @@ class ReadOnlyMonitor(HttpUser):
 
     @task(2)
     def list_predictions(self) -> None:
-        self.client.get("/api/v1/predictions?size=50", headers=self.headers, name="predictions/list")
+        self.client.get(
+            "/api/v1/predictions?size=50", headers=self.headers, name="predictions/list"
+        )
 
     @task(1)
     def get_alert_summary(self) -> None:
-        self.client.get("/api/v1/metrics/alerts/summary", headers=self.headers, name="metrics/alerts")
+        self.client.get(
+            "/api/v1/metrics/alerts/summary",
+            headers=self.headers,
+            name="metrics/alerts",
+        )
 
     @task(1)
     def get_machine_metrics(self) -> None:
@@ -308,6 +316,7 @@ class AdminLoadUser(HttpUser):
 
 
 # ── Custom SLA assertions ─────────────────────────────────────────────────────
+
 
 @events.quitting.add_listener
 def check_sla(environment: Any, **kwargs: Any) -> None:

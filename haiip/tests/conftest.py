@@ -7,7 +7,6 @@ Fixtures are scoped appropriately:
 Security: tests use a dedicated in-memory SQLite DB — never touches production.
 """
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -50,6 +49,7 @@ async def db_session(session_factory):
 
 # ── FastAPI test app ──────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture(scope="session")
 async def app(test_engine, session_factory):
     """Create test app with overridden DB dependency."""
@@ -79,6 +79,7 @@ async def client(app):
 
 
 # ── Seed data ─────────────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def test_tenant(db_session: AsyncSession) -> Tenant:

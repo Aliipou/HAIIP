@@ -19,14 +19,13 @@ returned 4xx, NOT 5xx (unless a 500 is specifically expected and handled).
 
 from __future__ import annotations
 
-import math
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 
+from haiip.api.models import Tenant
 
 # ── API Input Validation Crash Tests ─────────────────────────────────────────
+
 
 class TestMalformedInputs:
     @pytest.mark.asyncio
@@ -58,9 +57,7 @@ class TestMalformedInputs:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_predict_with_empty_body_rejected(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_empty_body_rejected(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/predict",
             json={},
@@ -69,9 +66,7 @@ class TestMalformedInputs:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_predict_with_no_body_rejected(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_no_body_rejected(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/predict",
             content=b"",
@@ -133,9 +128,7 @@ class TestMalformedInputs:
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_feedback_nonexistent_prediction(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_feedback_nonexistent_prediction(self, client: AsyncClient, admin_headers: dict):
         """Feedback for a non-existent prediction should not crash the server."""
         resp = await client.post(
             "/api/v1/feedback",
@@ -150,6 +143,7 @@ class TestMalformedInputs:
 
 
 # ── Extreme Numeric Values ────────────────────────────────────────────────────
+
 
 class TestExtremeValues:
     @pytest.mark.asyncio
@@ -174,9 +168,7 @@ class TestExtremeValues:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_predict_with_negative_values(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_negative_values(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/predict",
             json={
@@ -194,9 +186,7 @@ class TestExtremeValues:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_predict_with_zero_features(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_zero_features(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/predict",
             json={
@@ -214,9 +204,7 @@ class TestExtremeValues:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_predict_with_empty_features_dict(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_empty_features_dict(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/predict",
             json={
@@ -231,11 +219,10 @@ class TestExtremeValues:
 
 # ── Large Payload Tests ───────────────────────────────────────────────────────
 
+
 class TestLargePayloads:
     @pytest.mark.asyncio
-    async def test_predict_with_many_extra_features(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_predict_with_many_extra_features(self, client: AsyncClient, admin_headers: dict):
         """Very large feature dict should not crash."""
         features = {f"sensor_{i}": float(i) for i in range(500)}
         resp = await client.post(
@@ -246,9 +233,7 @@ class TestLargePayloads:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_alert_message_very_long(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_alert_message_very_long(self, client: AsyncClient, admin_headers: dict):
         long_msg = "A" * 10_000
         resp = await client.post(
             "/api/v1/alerts",
@@ -263,9 +248,7 @@ class TestLargePayloads:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_machine_id_max_length(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_machine_id_max_length(self, client: AsyncClient, admin_headers: dict):
         long_id = "M" * 200
         resp = await client.post(
             "/api/v1/predict",
@@ -279,6 +262,7 @@ class TestLargePayloads:
 
 
 # ── Authentication Edge Cases ─────────────────────────────────────────────────
+
 
 class TestAuthEdgeCases:
     @pytest.mark.asyncio
@@ -321,9 +305,7 @@ class TestAuthEdgeCases:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_wrong_credentials_rejected(
-        self, client: AsyncClient, test_tenant: Tenant
-    ):
+    async def test_wrong_credentials_rejected(self, client: AsyncClient, test_tenant: Tenant):
         resp = await client.post(
             "/api/v1/auth/login",
             data={"username": "nobody@test-sme.com", "password": "WrongPass!"},
@@ -343,9 +325,11 @@ class TestAuthEdgeCases:
 
 # ── ML Engine Edge Cases ──────────────────────────────────────────────────────
 
+
 class TestMLEngineEdgeCases:
     def test_anomaly_detector_handles_single_sample(self):
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector()
         detector.fit([[1.0, 2.0, 3.0, 4.0, 5.0]] * 50)
         result = detector.predict([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -354,6 +338,7 @@ class TestMLEngineEdgeCases:
 
     def test_anomaly_detector_handles_untrained(self):
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector()
         # Should not crash — returns safe default
         result = detector.predict([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -363,6 +348,7 @@ class TestMLEngineEdgeCases:
     def test_anomaly_detector_all_same_features(self):
         """Constant features should not cause division by zero."""
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector()
         data = [[5.0, 5.0, 5.0, 5.0, 5.0]] * 100
         detector.fit(data)
@@ -372,6 +358,7 @@ class TestMLEngineEdgeCases:
 
     def test_maintenance_predictor_handles_untrained(self):
         from haiip.core.maintenance import MaintenancePredictor
+
         predictor = MaintenancePredictor()
         result = predictor.predict([1.0, 2.0, 3.0, 4.0, 5.0])
         assert result is not None
@@ -379,15 +366,19 @@ class TestMLEngineEdgeCases:
 
     def test_drift_detector_requires_fit_before_check(self):
         import pytest
+
         from haiip.core.drift import DriftDetector
+
         detector = DriftDetector(feature_names=["temp"])
         # Without fit_reference, check() should raise RuntimeError
         import numpy as np
+
         with pytest.raises(RuntimeError):
             detector.check(np.array([[298.0]]))
 
     def test_feedback_engine_zero_samples(self):
         from haiip.core.feedback import FeedbackEngine
+
         engine = FeedbackEngine()
         # With no feedback, no retraining needed
         state = engine.get_state()
@@ -395,6 +386,7 @@ class TestMLEngineEdgeCases:
 
     def test_compliance_engine_empty_detect_incidents(self):
         from haiip.core.compliance import ComplianceEngine
+
         engine = ComplianceEngine()
         # Empty events → no incidents
         assert engine.detect_incidents() == []
@@ -402,12 +394,14 @@ class TestMLEngineEdgeCases:
     def test_rag_engine_query_empty_index(self):
         """Query with empty RAG index should not crash."""
         from haiip.core.rag import RAGEngine
+
         rag = RAGEngine()
         result = rag.query("What is the maintenance schedule?")
         assert result is not None
 
 
 # ── Concurrent Request Simulation ────────────────────────────────────────────
+
 
 class TestConcurrentAccess:
     @pytest.mark.asyncio
@@ -435,7 +429,11 @@ class TestConcurrentAccess:
 
         responses = await asyncio.gather(*[make_prediction(i) for i in range(10)])
         for resp in responses:
-            assert resp.status_code in (200, 201, 429)  # 429 = rate limited (acceptable)
+            assert resp.status_code in (
+                200,
+                201,
+                429,
+            )  # 429 = rate limited (acceptable)
 
     @pytest.mark.asyncio
     async def test_multiple_simultaneous_alert_creates(

@@ -95,7 +95,12 @@ class TestSelectSamples:
         ]
         resp = await client.post(
             "/api/v1/active-learning/select",
-            json={"predictions": preds, "strategy": "uncertainty", "budget": 2, "confidence_floor": 0.5},
+            json={
+                "predictions": preds,
+                "strategy": "uncertainty",
+                "budget": 2,
+                "confidence_floor": 0.5,
+            },
             headers=operator_headers,
         )
         assert resp.status_code == 200
@@ -137,7 +142,9 @@ class TestQueue:
 
 class TestLabel:
     @pytest.mark.asyncio
-    async def test_label_out_of_range_empty_queue(self, client: AsyncClient, operator_headers: dict):
+    async def test_label_out_of_range_empty_queue(
+        self, client: AsyncClient, operator_headers: dict
+    ):
         """Labeling when queue is at a non-existent index returns 404."""
         # Use a very large index that's certainly out of range
         resp = await client.post(

@@ -51,7 +51,6 @@ import math
 import numpy as np
 import pytest
 
-
 # ── Test corpus with ground truth ─────────────────────────────────────────────
 
 CORPUS_DOCS = [
@@ -61,7 +60,12 @@ CORPUS_DOCS = [
             "IsolationForest anomaly detection uses contamination=0.05. "
             "Recommended for SME environments. False positive rate is approximately 5%."
         ),
-        "relevant_for": ["contamination", "anomaly detection", "isolation forest", "false positive"],
+        "relevant_for": [
+            "contamination",
+            "anomaly detection",
+            "isolation forest",
+            "false positive",
+        ],
     },
     {
         "id": "doc-2",
@@ -95,7 +99,14 @@ CORPUS_DOCS = [
             "Heat Dissipation Failure (HDF) triggered by process temperature > 320K. "
             "Power Failure (PWF) occurs with torque > 65 Nm at high RPM."
         ),
-        "relevant_for": ["TWF", "HDF", "PWF", "failure mode", "tool wear", "temperature"],
+        "relevant_for": [
+            "TWF",
+            "HDF",
+            "PWF",
+            "failure mode",
+            "tool wear",
+            "temperature",
+        ],
     },
 ]
 
@@ -104,17 +115,21 @@ CORPUS_DOCS = [
 def relevance_rag():
     """RAG engine populated with test corpus for relevance evaluation."""
     from haiip.core.rag import Document, RAGEngine
+
     rag = RAGEngine()
     for doc_info in CORPUS_DOCS:
-        rag.add_document(Document(
-            content=doc_info["content"],
-            title=f"Doc-{doc_info['id']}",
-            source="test_corpus",
-        ))
+        rag.add_document(
+            Document(
+                content=doc_info["content"],
+                title=f"Doc-{doc_info['id']}",
+                source="test_corpus",
+            )
+        )
     return rag
 
 
 # ── Retrieval Relevance Metrics ───────────────────────────────────────────────
+
 
 class TestRetrievalRelevance:
     """Standard IR metrics applied to RAG document retrieval."""
@@ -140,15 +155,20 @@ class TestRetrievalRelevance:
             term in (top_source.get("excerpt", "") + top_source.get("title", "")).lower()
             for term in relevant_terms
         )
-        assert is_rel, f"P@1 failed: top result not relevant to contamination query. Got: {top_source['title']}"
+        assert is_rel, (
+            f"P@1 failed: top result not relevant to contamination query. Got: {top_source['title']}"
+        )
 
     def test_precision_at_2_for_rul_query(self, relevance_rag):
         """At least 1 of top-2 results for RUL query should be relevant."""
         result = relevance_rag.query("RUL remaining useful life threshold", top_k=2)
         relevant_count = sum(
-            1 for s in result.sources
-            if any(t in (s.get("excerpt", "") + s.get("title", "")).lower()
-                   for t in ["rul", "remaining", "threshold", "30"])
+            1
+            for s in result.sources
+            if any(
+                t in (s.get("excerpt", "") + s.get("title", "")).lower()
+                for t in ["rul", "remaining", "threshold", "30"]
+            )
         )
         assert relevant_count >= 1, "P@2 failed: no relevant doc in top-2 for RUL query"
 
@@ -159,8 +179,9 @@ class TestRetrievalRelevance:
             # Scores should be in descending order
             scores = [s["score"] for s in result.sources]
             for i in range(len(scores) - 1):
-                assert scores[i] >= scores[i + 1] - 0.01, \
+                assert scores[i] >= scores[i + 1] - 0.01, (
                     f"Scores not in descending order: {scores}"
+                )
 
     def test_mrr_for_direct_queries(self, relevance_rag):
         """MRR: the first relevant result should appear early in rankings."""
@@ -198,15 +219,9 @@ class TestRetrievalRelevance:
             return 0
 
         if result.sources:
-            dcg = sum(
-                grade(s) / math.log2(i + 2)
-                for i, s in enumerate(result.sources)
-            )
+            dcg = sum(grade(s) / math.log2(i + 2) for i, s in enumerate(result.sources))
             # Ideal: all top results grade=2
-            idcg = sum(
-                2.0 / math.log2(i + 2)
-                for i in range(min(len(result.sources), 2))
-            )
+            idcg = sum(2.0 / math.log2(i + 2) for i in range(min(len(result.sources), 2)))
             ndcg = dcg / idcg if idcg > 0 else 0.0
             assert ndcg >= 0.0, "NDCG must be non-negative"
 
@@ -219,14 +234,13 @@ class TestRetrievalRelevance:
 
 # ── Answer Faithfulness ───────────────────────────────────────────────────────
 
+
 class TestAnswerFaithfulness:
     """Answers must be faithful to retrieved context (not hallucinated)."""
 
     def test_answer_contains_retrieved_content(self, relevance_rag):
         """Answer should contain information from retrieved documents."""
-        result = relevance_rag.query(
-            "What is the IsolationForest contamination setting?"
-        )
+        result = relevance_rag.query("What is the IsolationForest contamination setting?")
         # Either answer contains doc content OR has sources
         has_content = "0.05" in result.answer or "5%" in result.answer or len(result.sources) > 0
         assert has_content, "Answer not grounded in retrieved documents"
@@ -238,7 +252,6 @@ class TestAnswerFaithfulness:
         # Should not contain invented numbers like 100, 500, etc.
         if result.answer and result.sources:
             # If we have sources, the answer should reference numbers from them
-            valid_numbers = {"0.05", "5%", "30", "5", "10000", "200", "320", "65", "1"}
             # This is a soft check — we just ensure the answer exists
             assert isinstance(result.answer, str)
 
@@ -254,12 +267,14 @@ class TestAnswerFaithfulness:
 
 # ── Feature Importance Validity ───────────────────────────────────────────────
 
+
 class TestFeatureImportanceValidity:
     """Verify model explanations are scientifically valid."""
 
     @pytest.fixture
     def trained_detector(self):
         from haiip.core.anomaly import AnomalyDetector
+
         rng = np.random.RandomState(42)
         data = rng.normal(298.0, 2.0, (200, 5)).tolist()
         d = AnomalyDetector(random_state=42)
@@ -299,10 +314,13 @@ class TestFeatureImportanceValidity:
         # Access classifier feature importances
         importances = predictor._classifier.feature_importances_
         importance_sum = float(np.sum(importances))
-        assert abs(importance_sum - 1.0) < 1e-6, f"Feature importances sum to {importance_sum}, not 1.0"
+        assert abs(importance_sum - 1.0) < 1e-6, (
+            f"Feature importances sum to {importance_sum}, not 1.0"
+        )
 
 
 # ── Prediction Coverage ───────────────────────────────────────────────────────
+
 
 class TestPredictionCoverage:
     """Verify model handles all input domains without silent failures."""
@@ -310,6 +328,7 @@ class TestPredictionCoverage:
     @pytest.fixture
     def trained_detector(self):
         from haiip.core.anomaly import AnomalyDetector
+
         rng = np.random.RandomState(42)
         data = rng.normal(298.0, 2.0, (200, 5)).tolist()
         d = AnomalyDetector(random_state=42)
@@ -321,20 +340,28 @@ class TestPredictionCoverage:
         rng = np.random.RandomState(0)
 
         # In-distribution
-        in_dist = [[float(rng.normal(298.0, 2.0)),
-                    float(rng.normal(308.0, 1.5)),
-                    float(rng.normal(1500, 50)),
-                    float(rng.normal(40.0, 3.0)),
-                    float(rng.uniform(0, 50))]
-                   for _ in range(50)]
+        in_dist = [
+            [
+                float(rng.normal(298.0, 2.0)),
+                float(rng.normal(308.0, 1.5)),
+                float(rng.normal(1500, 50)),
+                float(rng.normal(40.0, 3.0)),
+                float(rng.uniform(0, 50)),
+            ]
+            for _ in range(50)
+        ]
 
         # Out-of-distribution (extreme values)
-        ood = [[float(rng.normal(500.0, 10.0)),
+        ood = [
+            [
+                float(rng.normal(500.0, 10.0)),
                 float(rng.normal(600.0, 10.0)),
                 float(rng.normal(10000, 1000)),
                 float(rng.normal(200.0, 20.0)),
-                float(rng.uniform(900, 1000))]
-               for _ in range(50)]
+                float(rng.uniform(900, 1000)),
+            ]
+            for _ in range(50)
+        ]
 
         in_results = trained_detector.predict_batch(in_dist)
         ood_results = trained_detector.predict_batch(ood)
@@ -351,7 +378,7 @@ class TestPredictionCoverage:
     def test_all_valid_sensor_ranges_handled(self, trained_detector):
         """Every valid sensor reading combination must return a result."""
         test_cases = [
-            [295.0, 305.0, 1168.0, 3.8, 0.0],    # minimum valid values
+            [295.0, 305.0, 1168.0, 3.8, 0.0],  # minimum valid values
             [305.0, 315.0, 2886.0, 76.6, 253.0],  # maximum valid values
             [300.0, 310.0, 1500.0, 40.0, 125.0],  # midpoint values
         ]
@@ -363,6 +390,7 @@ class TestPredictionCoverage:
 
 # ── Calibration Quality ───────────────────────────────────────────────────────
 
+
 class TestCalibrationQuality:
     """Brier score and reliability diagram quality checks."""
 
@@ -372,13 +400,17 @@ class TestCalibrationQuality:
 
         rng = np.random.RandomState(42)
         normal = rng.normal(298.0, 2.0, (300, 5)).tolist()
-        anomaly = (np.column_stack([
-            rng.normal(340.0, 5.0, 30),
-            rng.normal(355.0, 4.0, 30),
-            rng.normal(2200, 100, 30),
-            rng.normal(70.0, 8.0, 30),
-            rng.uniform(200, 250, 30),
-        ])).tolist()
+        anomaly = (
+            np.column_stack(
+                [
+                    rng.normal(340.0, 5.0, 30),
+                    rng.normal(355.0, 4.0, 30),
+                    rng.normal(2200, 100, 30),
+                    rng.normal(70.0, 8.0, 30),
+                    rng.uniform(200, 250, 30),
+                ]
+            )
+        ).tolist()
 
         detector = AnomalyDetector(contamination=0.05, random_state=42)
         detector.fit(normal)
@@ -410,6 +442,7 @@ class TestCalibrationQuality:
 
 
 # ── Ensemble Diversity ────────────────────────────────────────────────────────
+
 
 class TestEnsembleDiversity:
     """Anomaly detector and maintenance predictor should disagree on boundary cases."""
@@ -452,6 +485,7 @@ class TestEnsembleDiversity:
 
 
 # ── Online Learning Compatibility ─────────────────────────────────────────────
+
 
 class TestOnlineLearningCompatibility:
     """Verify feedback loop is compatible with continuous learning."""

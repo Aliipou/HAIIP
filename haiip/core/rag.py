@@ -42,6 +42,7 @@ MAX_CONTEXT_CHARS = 3000
 @dataclass
 class Document:
     """A single document chunk in the knowledge base."""
+
     content: str
     title: str
     source: str = "manual"
@@ -95,7 +96,7 @@ class RAGEngine:
 
     # ── Initialization ────────────────────────────────────────────────────────
 
-    def initialize(self) -> "RAGEngine":
+    def initialize(self) -> RAGEngine:
         """Load embedding model and optionally LLM. Call once at startup."""
         self._embed_model = self._load_embedding_model()
 
@@ -117,6 +118,7 @@ class RAGEngine:
     def _load_embedding_model(self) -> Any:
         try:
             from sentence_transformers import SentenceTransformer
+
             model = SentenceTransformer(self.model_name)
             logger.info("Embedding model loaded: %s", self.model_name)
             return model
@@ -127,6 +129,7 @@ class RAGEngine:
     def _load_llm(self) -> Any:
         try:
             from openai import OpenAI
+
             client = OpenAI(api_key=self.openai_api_key)
             logger.info("OpenAI LLM loaded: %s", self.openai_model)
             return client
@@ -138,7 +141,7 @@ class RAGEngine:
 
     def add_documents(self, documents: list[Document]) -> None:
         """Add documents to the knowledge base and rebuild the index."""
-        new_ids = {doc.doc_id for doc in documents}
+        {doc.doc_id for doc in documents}
         existing_ids = {doc.doc_id for doc in self._documents}
         to_add = [d for d in documents if d.doc_id not in existing_ids]
 
@@ -171,7 +174,7 @@ class RAGEngine:
         docs = [
             Document(
                 content=chunk,
-                title=f"{title} (chunk {i+1}/{len(chunks)})",
+                title=f"{title} (chunk {i + 1}/{len(chunks)})",
                 source=source,
                 machine_id=machine_id,
             )
@@ -344,7 +347,7 @@ class RAGEngine:
         for i, text in enumerate(texts):
             words = text.lower().split()
             for word in words:
-                idx = int(hashlib.md5(word.encode()).hexdigest(), 16) % dim  # noqa: S324
+                idx = int(hashlib.md5(word.encode()).hexdigest(), 16) % dim  # noqa: S324  # nosec B324
                 result[i, idx] += 1.0
             norm = np.linalg.norm(result[i])
             if norm > 0:
@@ -357,6 +360,7 @@ class RAGEngine:
 
         try:
             import faiss
+
             dim = self._embeddings.shape[1]
             self._index = faiss.IndexFlatIP(dim)  # inner product = cosine for normalized
             self._index.add(self._embeddings)
@@ -369,11 +373,13 @@ class RAGEngine:
 
     def _save_index(self) -> None:
         import pickle
+
         path = self.persist_dir
         path.mkdir(parents=True, exist_ok=True)
 
         if self._index is not None:
             import faiss
+
             faiss.write_index(self._index, str(path / "faiss.index"))
 
         if self._embeddings is not None:
@@ -386,10 +392,12 @@ class RAGEngine:
 
     def _load_index(self) -> None:
         import pickle
+
         path = self.persist_dir
 
         try:
             import faiss
+
             self._index = faiss.read_index(str(path / "faiss.index"))
         except (ImportError, Exception):
             self._index = None
@@ -401,7 +409,7 @@ class RAGEngine:
         doc_path = path / "documents.pkl"
         if doc_path.exists():
             with open(doc_path, "rb") as f:
-                self._documents = pickle.load(f)  # noqa: S301 — internal use only
+                self._documents = pickle.load(f)  # noqa: S301  # nosec B301
 
         logger.info("RAGEngine loaded from %s (%d docs)", path, len(self._documents))
 

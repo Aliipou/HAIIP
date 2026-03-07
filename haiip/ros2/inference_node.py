@@ -10,20 +10,23 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 
 import httpx
 
 try:
     import rclpy
     from rclpy.node import Node
-    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+    from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+
     try:
-        from haiip_msgs.msg import VibrationReading, AIPrediction as AIPred
+        from haiip_msgs.msg import AIPrediction as AIPred
+        from haiip_msgs.msg import VibrationReading
+
         _MSG = "haiip_msgs"
     except ImportError:
-        from sensor_msgs.msg import Imu as VibrationReading          # type: ignore
-        from std_msgs.msg import String as AIPred                    # type: ignore
+        from sensor_msgs.msg import Imu as VibrationReading  # type: ignore
+        from std_msgs.msg import String as AIPred  # type: ignore
+
         _MSG = "std_msgs"
     _ROS2 = True
 except ImportError:
@@ -34,53 +37,58 @@ except ImportError:
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _sample_from_haiip_msg(msg, msg_type: str) -> dict:
     if msg_type == "haiip_msgs":
         return {
-            "machine_id":       msg.machine_id,
-            "vib_x":            msg.vib_x,
-            "vib_y":            msg.vib_y,
-            "vib_z":            msg.vib_z,
-            "vib_rms":          msg.vib_rms,
+            "machine_id": msg.machine_id,
+            "vib_x": msg.vib_x,
+            "vib_y": msg.vib_y,
+            "vib_z": msg.vib_z,
+            "vib_rms": msg.vib_rms,
             "rotational_speed": msg.rotational_speed,
-            "torque":           msg.torque,
+            "torque": msg.torque,
         }
     else:  # sensor_msgs/Imu fallback
         cov = list(msg.linear_acceleration_covariance)
-        rms = (msg.linear_acceleration.x**2 +
-               msg.linear_acceleration.y**2 +
-               msg.linear_acceleration.z**2) ** 0.5
+        rms = (
+            msg.linear_acceleration.x**2
+            + msg.linear_acceleration.y**2
+            + msg.linear_acceleration.z**2
+        ) ** 0.5
         return {
-            "machine_id":       msg.header.frame_id,
-            "vib_x":            msg.linear_acceleration.x,
-            "vib_y":            msg.linear_acceleration.y,
-            "vib_z":            msg.linear_acceleration.z,
-            "vib_rms":          rms,
+            "machine_id": msg.header.frame_id,
+            "vib_x": msg.linear_acceleration.x,
+            "vib_y": msg.linear_acceleration.y,
+            "vib_z": msg.linear_acceleration.z,
+            "vib_rms": rms,
             "rotational_speed": cov[0],
-            "torque":           cov[1],
+            "torque": cov[1],
         }
 
 
 def _build_sensor_reading(sample: dict) -> dict:
     """Convert vibration sample to HAIIP SensorReading schema."""
     return {
-        "machine_id":          sample["machine_id"],
-        "air_temperature":     22.0,
+        "machine_id": sample["machine_id"],
+        "air_temperature": 22.0,
         "process_temperature": 22.0 + sample["vib_rms"] * 1.5,
-        "rotational_speed":    sample.get("rotational_speed", 1450.0),
-        "torque":              sample.get("torque", 22.0),
-        "tool_wear":           0.0,
+        "rotational_speed": sample.get("rotational_speed", 1450.0),
+        "torque": sample.get("torque", 22.0),
+        "tool_wear": 0.0,
         "extra_features": {
-            "vib_x":   round(sample["vib_x"], 5),
-            "vib_y":   round(sample["vib_y"], 5),
-            "vib_z":   round(sample["vib_z"], 5),
+            "vib_x": round(sample["vib_x"], 5),
+            "vib_y": round(sample["vib_y"], 5),
+            "vib_z": round(sample["vib_z"], 5),
             "vib_rms": round(sample["vib_rms"], 5),
-            "source":  "ros2",
+            "source": "ros2",
         },
     }
 
 
-async def call_api(sample: dict, client: httpx.AsyncClient, token: str, api_url: str) -> dict | None:
+async def call_api(
+    sample: dict, client: httpx.AsyncClient, token: str, api_url: str
+) -> dict | None:
     try:
         resp = await client.post(
             f"{api_url}/api/v1/predict",
@@ -91,13 +99,13 @@ async def call_api(sample: dict, client: httpx.AsyncClient, token: str, api_url:
         resp.raise_for_status()
         pred = resp.json().get("data", {})
         return {
-            "machine_id":          sample["machine_id"],
-            "label":               pred.get("prediction_label", "UNKNOWN"),
-            "confidence":          pred.get("confidence", 0.0),
-            "anomaly_score":       pred.get("anomaly_score") or 0.0,
+            "machine_id": sample["machine_id"],
+            "label": pred.get("prediction_label", "UNKNOWN"),
+            "confidence": pred.get("confidence", 0.0),
+            "anomaly_score": pred.get("anomaly_score") or 0.0,
             "failure_probability": pred.get("confidence", 0.0),
             "requires_human_review": pred.get("confidence", 1.0) < 0.35,
-            "offline":             False,
+            "offline": False,
         }
     except Exception as e:
         print(f"[InferenceNode] API error: {e}")
@@ -118,32 +126,34 @@ if _ROS2:
     class InferenceNode(Node):
         def __init__(self) -> None:
             super().__init__("haiip_inference_node")
-            self.declare_parameter("machine_ids",    ["pump-01"])
-            self.declare_parameter("api_url",        "http://localhost:8000")
+            self.declare_parameter("machine_ids", ["pump-01"])
+            self.declare_parameter("api_url", "http://localhost:8000")
             self.declare_parameter("sample_every_n", 50)
-            self.declare_parameter("tenant_slug",    "demo-sme")
-            self.declare_parameter("email",          "admin@haiip.ai")
-            self.declare_parameter("password",       "Demo1234!")
+            self.declare_parameter("tenant_slug", "demo-sme")
+            self.declare_parameter("email", "admin@haiip.ai")
+            self.declare_parameter("password", "Demo1234!")
 
             self._api_url = self.get_parameter("api_url").value
             self._every_n = self.get_parameter("sample_every_n").value
             self._counts: dict[str, int] = {}
             self._token: str | None = None
-            self._pubs:  dict[str, object] = {}
+            self._pubs: dict[str, object] = {}
             self._client = httpx.AsyncClient()
 
             cfg = {
                 "tenant_slug": self.get_parameter("tenant_slug").value,
-                "email":       self.get_parameter("email").value,
-                "password":    self.get_parameter("password").value,
+                "email": self.get_parameter("email").value,
+                "password": self.get_parameter("password").value,
             }
 
             for mid in list(self.get_parameter("machine_ids").value):
                 self._counts[mid] = 0
-                self._pubs[mid]   = self.create_publisher(AIPred, f"/haiip/ai/{mid}", _QOS)
+                self._pubs[mid] = self.create_publisher(AIPred, f"/haiip/ai/{mid}", _QOS)
                 self.create_subscription(
-                    VibrationReading, f"/haiip/vibration/{mid}",
-                    lambda msg, m=mid: self._on_vib(msg, m), _QOS,
+                    VibrationReading,
+                    f"/haiip/vibration/{mid}",
+                    lambda msg, m=mid: self._on_vib(msg, m),
+                    _QOS,
                 )
 
             # Login once at startup
@@ -154,9 +164,7 @@ if _ROS2:
             loop = asyncio.get_event_loop()
             try:
                 resp = loop.run_until_complete(
-                    self._client.post(
-                        f"{self._api_url}/api/v1/auth/login", json=cfg, timeout=10
-                    )
+                    self._client.post(f"{self._api_url}/api/v1/auth/login", json=cfg, timeout=10)
                 )
                 self._token = resp.json()["access_token"]
                 self.get_logger().info("InferenceNode: authenticated")
@@ -171,7 +179,7 @@ if _ROS2:
                 return
 
             sample = _sample_from_haiip_msg(msg, _MSG)
-            loop   = asyncio.get_event_loop()
+            loop = asyncio.get_event_loop()
             result = loop.run_until_complete(
                 call_api(sample, self._client, self._token, self._api_url)
             )
@@ -180,15 +188,15 @@ if _ROS2:
 
             if _MSG == "haiip_msgs":
                 out = AIPred()
-                out.header.stamp    = self.get_clock().now().to_msg()
+                out.header.stamp = self.get_clock().now().to_msg()
                 out.header.frame_id = machine_id
-                out.machine_id      = result["machine_id"]
-                out.label           = result["label"]
-                out.confidence      = result["confidence"]
-                out.anomaly_score   = result["anomaly_score"]
-                out.failure_probability  = result["failure_probability"]
+                out.machine_id = result["machine_id"]
+                out.label = result["label"]
+                out.confidence = result["confidence"]
+                out.anomaly_score = result["anomaly_score"]
+                out.failure_probability = result["failure_probability"]
                 out.requires_human_review = result["requires_human_review"]
-                out.offline         = result["offline"]
+                out.offline = result["offline"]
             else:
                 out = AIPred()
                 out.data = json.dumps(result)
@@ -200,14 +208,15 @@ if _ROS2:
 # Standalone coroutine
 # ---------------------------------------------------------------------------
 
+
 async def inference_coroutine(
     vib_queue: asyncio.Queue,
-    ai_queue:  asyncio.Queue,
-    api_url:   str   = "http://localhost:8000",
-    tenant:    str   = "demo-sme",
-    email:     str   = "admin@haiip.ai",
-    password:  str   = "Demo1234!",
-    every_n:   int   = 50,
+    ai_queue: asyncio.Queue,
+    api_url: str = "http://localhost:8000",
+    tenant: str = "demo-sme",
+    email: str = "admin@haiip.ai",
+    password: str = "Demo1234!",  # noqa: S107
+    every_n: int = 50,
 ) -> None:
     token = None
     count = 0

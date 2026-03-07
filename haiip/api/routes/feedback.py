@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
-from haiip.api.deps import CurrentUser, DB
+from haiip.api.deps import DB, CurrentUser
 from haiip.api.models import FeedbackLog, Prediction
 from haiip.api.schemas import FeedbackRequest, FeedbackResponse
 
@@ -79,7 +79,5 @@ async def list_feedback(
     if prediction_id:
         query = query.where(FeedbackLog.prediction_id == prediction_id)
 
-    result = await db.execute(
-        query.order_by(FeedbackLog.created_at.desc()).limit(min(limit, 200))
-    )
+    result = await db.execute(query.order_by(FeedbackLog.created_at.desc()).limit(min(limit, 200)))
     return list(result.scalars().all())

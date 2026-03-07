@@ -19,7 +19,6 @@ from __future__ import annotations
 import threading
 import uuid
 
-import numpy as np
 import pytest
 
 from haiip.core.economic_ai import (
@@ -29,8 +28,8 @@ from haiip.core.economic_ai import (
     MaintenanceAction,
 )
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def default_profile() -> CostProfile:
@@ -64,6 +63,7 @@ def custom_engine() -> EconomicDecisionEngine:
 
 
 # ── CostProfile ────────────────────────────────────────────────────────────────
+
 
 class TestCostProfile:
     def test_c_downtime_formula(self) -> None:
@@ -105,6 +105,7 @@ class TestCostProfile:
 
 
 # ── Decision correctness ───────────────────────────────────────────────────────
+
 
 class TestDecisionBranches:
     def test_repair_now_high_probability(self, engine: EconomicDecisionEngine) -> None:
@@ -162,11 +163,12 @@ def engine_decide_helper(eng: EconomicDecisionEngine, **kwargs: float) -> Econom
 
 # ── Cost arithmetic ────────────────────────────────────────────────────────────
 
+
 class TestCostArithmetic:
     def test_expected_cost_wait_formula(self, engine: EconomicDecisionEngine) -> None:
-        p  = 0.8
+        p = 0.8
         cf = engine.cost_profile
-        d  = engine.decide(anomaly_score=0.9, failure_probability=p)
+        d = engine.decide(anomaly_score=0.9, failure_probability=p)
         assert d.expected_cost_wait == pytest.approx(p * cf.c_false_negative, rel=1e-3)
 
     def test_net_benefit_sign_repair_now(self, engine: EconomicDecisionEngine) -> None:
@@ -194,19 +196,14 @@ class TestCostArithmetic:
 
 # ── Human review triggers ──────────────────────────────────────────────────────
 
+
 class TestHumanReview:
     def test_low_confidence_triggers_review(self, engine: EconomicDecisionEngine) -> None:
-        d = engine.decide(
-            anomaly_score=0.5, failure_probability=0.6, confidence=0.20
-        )
+        d = engine.decide(anomaly_score=0.5, failure_probability=0.6, confidence=0.20)
         assert d.requires_human_review
 
-    def test_high_confidence_no_review_for_monitor(
-        self, engine: EconomicDecisionEngine
-    ) -> None:
-        d = engine.decide(
-            anomaly_score=0.3, failure_probability=0.25, confidence=0.95
-        )
+    def test_high_confidence_no_review_for_monitor(self, engine: EconomicDecisionEngine) -> None:
+        d = engine.decide(anomaly_score=0.3, failure_probability=0.25, confidence=0.95)
         # Monitor with high confidence → no human review required
         assert not d.requires_human_review
 
@@ -220,6 +217,7 @@ class TestHumanReview:
 
 
 # ── Extreme values ─────────────────────────────────────────────────────────────
+
 
 class TestExtremeValues:
     def test_p_zero(self, engine: EconomicDecisionEngine) -> None:
@@ -244,6 +242,7 @@ class TestExtremeValues:
 
 # ── Batch + ROI ────────────────────────────────────────────────────────────────
 
+
 class TestBatchAndROI:
     def test_batch_returns_all_results(self, engine: EconomicDecisionEngine) -> None:
         records = [
@@ -255,14 +254,21 @@ class TestBatchAndROI:
         assert len(results) == 3
 
     def test_roi_summary_keys(self, engine: EconomicDecisionEngine) -> None:
-        decisions = engine.batch_decide([
-            {"anomaly_score": 0.9, "failure_probability": 0.85},
-            {"anomaly_score": 0.5, "failure_probability": 0.55},
-            {"anomaly_score": 0.1, "failure_probability": 0.10},
-        ])
+        decisions = engine.batch_decide(
+            [
+                {"anomaly_score": 0.9, "failure_probability": 0.85},
+                {"anomaly_score": 0.5, "failure_probability": 0.55},
+                {"anomaly_score": 0.1, "failure_probability": 0.10},
+            ]
+        )
         roi = engine.roi_summary(decisions)
-        for key in ("total_net_benefit", "decisions_by_action", "avg_confidence",
-                    "human_review_count", "projected_downtime_savings_eur"):
+        for key in (
+            "total_net_benefit",
+            "decisions_by_action",
+            "avg_confidence",
+            "human_review_count",
+            "projected_downtime_savings_eur",
+        ):
             assert key in roi
 
     def test_roi_summary_empty(self, engine: EconomicDecisionEngine) -> None:
@@ -287,6 +293,7 @@ class TestBatchAndROI:
 
 
 # ── Thread safety ──────────────────────────────────────────────────────────────
+
 
 class TestThreadSafety:
     def test_concurrent_decisions(self, engine: EconomicDecisionEngine) -> None:

@@ -30,6 +30,7 @@ def fitted_detector(reference_data):
 
 # ── PageHinkley ───────────────────────────────────────────────────────────────
 
+
 def test_ph_no_drift_stable_stream():
     ph = PageHinkleyDetector(threshold=50.0)
     rng = np.random.default_rng(0)
@@ -57,6 +58,7 @@ def test_ph_reset():
 
 
 # ── DriftDetector ─────────────────────────────────────────────────────────────
+
 
 def test_check_before_fit_raises():
     d = DriftDetector()

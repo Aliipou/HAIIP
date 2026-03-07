@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # Override via HAIIP_AWS_SECRETS_NAME env var if needed
 DEFAULT_SECRET_NAME = os.getenv("HAIIP_AWS_SECRETS_NAME", "haiip/production/config")
-DEFAULT_AWS_REGION  = os.getenv("AWS_REGION", "eu-north-1")
+DEFAULT_AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
 
 # In-memory cache: (secret_dict, fetched_at_epoch)
 _cache: dict[str, tuple[dict[str, str], float]] = {}
@@ -47,6 +47,7 @@ _CACHE_TTL_SECONDS = 300  # refresh every 5 minutes
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
+
 
 def inject_aws_secrets(
     secret_name: str = DEFAULT_SECRET_NAME,
@@ -126,6 +127,7 @@ def clear_cache() -> None:
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
+
 def _fetch_with_cache(secret_name: str, region: str, ttl: int) -> dict[str, str]:
     """Return cached secrets dict, refreshing from AWS if TTL expired."""
     cached = _get_cache(secret_name)
@@ -149,7 +151,7 @@ def _fetch_from_aws(secret_name: str, region: str) -> dict[str, str]:
     """Call boto3 to retrieve and parse the secret.  Returns {} on any failure in dev."""
     try:
         import boto3  # type: ignore[import]
-        from botocore.exceptions import ClientError  # type: ignore[import]
+        from botocore.exceptions import ClientError  # type: ignore[import]  # noqa: F401
     except ImportError:
         logger.debug("boto3 not installed — AWS Secrets Manager unavailable")
         return {}

@@ -1,7 +1,5 @@
 """Tests for data/simulation/simulator.py."""
 
-import pytest
-
 from haiip.data.simulation.simulator import IndustrialSimulator, SimulatorConfig
 
 
@@ -44,9 +42,7 @@ def test_readings_within_plausible_ranges():
 
 
 def test_fault_injection():
-    sim = IndustrialSimulator(
-        SimulatorConfig(fault_probability=1.0, machine_id="FAULT-TEST")
-    )
+    sim = IndustrialSimulator(SimulatorConfig(fault_probability=1.0, machine_id="FAULT-TEST"))
     reading = sim.next()
     assert reading["is_fault"] is True
     assert reading["fault_type"] is not None
@@ -79,8 +75,15 @@ def test_reading_has_required_keys():
     sim = IndustrialSimulator()
     reading = sim.next()
     required = {
-        "machine_id", "cycle", "timestamp", "air_temperature",
-        "process_temperature", "rotational_speed", "torque", "tool_wear",
-        "is_fault", "fault_type",
+        "machine_id",
+        "cycle",
+        "timestamp",
+        "air_temperature",
+        "process_temperature",
+        "rotational_speed",
+        "torque",
+        "tool_wear",
+        "is_fault",
+        "fault_type",
     }
     assert required.issubset(reading.keys())

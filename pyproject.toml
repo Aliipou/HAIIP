@@ -95,15 +95,23 @@ packages = ["haiip"]
 
 # ── Ruff (linter + formatter) ─────────────────────────────────────────────────
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "S", "B", "A", "C4", "UP", "ANN"]
-ignore = ["ANN101", "ANN102"]
+select = ["E", "F", "W", "I", "S", "B", "C4", "UP"]
+ignore = [
+    "S101",  # assert — used in tests and internal guards
+    "S105",  # hardcoded-password-string — token labels are not secrets
+    "S110",  # try-except-pass — intentional for optional-dependency imports
+    "S311",  # pseudo-random — not used for cryptographic purposes
+    "S310",  # suspicious-urllib-open — internal HTTP only
+    "B905",  # zip-without-explicit-strict — fine on Python 3.11+
+    "E501",  # line-too-long — formatter handles; long lines in ML/generated code
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN"]
+"haiip/tests/**" = ["S101", "S106", "S108", "S603", "S607"]
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]

@@ -64,7 +64,7 @@ class AnomalyDetector:
 
     # ── Training ──────────────────────────────────────────────────────────────
 
-    def fit(self, X: np.ndarray) -> "AnomalyDetector":
+    def fit(self, X: np.ndarray) -> AnomalyDetector:
         """Fit scaler + Isolation Forest on normal (or mixed) data.
 
         Args:
@@ -89,7 +89,7 @@ class AnomalyDetector:
         )
         return self
 
-    def fit_from_dataframe(self, df: Any, feature_cols: list[str] | None = None) -> "AnomalyDetector":
+    def fit_from_dataframe(self, df: Any, feature_cols: list[str] | None = None) -> AnomalyDetector:
         """Convenience method — fit directly from a pandas DataFrame."""
         import pandas as pd
 
@@ -173,12 +173,10 @@ class AnomalyDetector:
             self._build_shap_explainer()
         if self._shap_explainer is not None:
             try:
-                import shap  # type: ignore[import]
                 sv = self._shap_explainer.shap_values(arr_scaled, check_additivity=False)
                 for i in range(len(predictions)):
                     batch_shap[i] = {
-                        name: round(float(val), 4)
-                        for name, val in zip(self.feature_names, sv[i])
+                        name: round(float(val), 4) for name, val in zip(self.feature_names, sv[i])
                     }
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Batch SHAP failed: %s", exc)
@@ -194,9 +192,7 @@ class AnomalyDetector:
             )
             z_scores = arr_scaled[i].tolist()
             explanation = {
-                name: round(z, 3)
-                for name, z in zip(self.feature_names, z_scores)
-                if abs(z) > 1.5
+                name: round(z, 3) for name, z in zip(self.feature_names, z_scores) if abs(z) > 1.5
             }
             entry: dict[str, Any] = {
                 "label": label,
@@ -225,7 +221,7 @@ class AnomalyDetector:
         logger.info("AnomalyDetector saved to %s", path)
 
     @classmethod
-    def load(cls, path: Path | str) -> "AnomalyDetector":
+    def load(cls, path: Path | str) -> AnomalyDetector:
         """Load a previously saved model from disk."""
         import joblib
 
@@ -250,6 +246,7 @@ class AnomalyDetector:
         """
         try:
             import shap  # type: ignore[import]
+
             self._shap_explainer = shap.TreeExplainer(self._model)
             logger.debug("SHAP TreeExplainer built")
         except Exception as exc:  # noqa: BLE001
@@ -263,14 +260,10 @@ class AnomalyDetector:
         if self._shap_explainer is None:
             return None
         try:
-            import shap  # type: ignore[import]
             sv = self._shap_explainer.shap_values(arr_scaled, check_additivity=False)
             # sv shape: (n_samples, n_features) — IsolationForest returns a 2-D array
             if hasattr(sv, "__len__") and len(sv) == arr_scaled.shape[0]:
-                return {
-                    name: round(float(val), 4)
-                    for name, val in zip(self.feature_names, sv[0])
-                }
+                return {name: round(float(val), 4) for name, val in zip(self.feature_names, sv[0])}
         except Exception as exc:  # noqa: BLE001
             logger.debug("SHAP inference failed: %s", exc)
         return None

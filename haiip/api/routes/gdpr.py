@@ -9,15 +9,15 @@ Endpoints:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from haiip.api.deps import CurrentUser, AdminUser
-from haiip.core.data_privacy import DataPrivacyEngine, ErasureRequest, DataExportResult
+from haiip.api.deps import CurrentUser
+from haiip.core.data_privacy import DataExportResult, DataPrivacyEngine, ErasureRequest
 
 router = APIRouter(prefix="/gdpr", tags=["GDPR"])
 
@@ -25,11 +25,13 @@ router = APIRouter(prefix="/gdpr", tags=["GDPR"])
 def _get_engine(tenant_id: str) -> DataPrivacyEngine:
     """Build privacy engine with per-tenant salt."""
     import hashlib
+
     salt = hashlib.sha256(f"haiip-tenant-{tenant_id}".encode()).hexdigest()[:32]
     return DataPrivacyEngine(tenant_salt=salt)
 
 
 # ── Request / Response models ─────────────────────────────────────────────────
+
 
 class ErasureRequestBody(BaseModel):
     subject_id: str = Field(..., description="User ID or machine ID to erase")
@@ -74,6 +76,7 @@ class ConsentValidationResponse(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/erasure",
     response_model=ErasureResponse,
@@ -94,7 +97,7 @@ async def request_erasure(
 
     tenant_id = str(current_user.tenant_id)
     request_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # In production: queue deletion job via Celery
     # For now: record request and return accepted status
@@ -137,7 +140,7 @@ async def export_data(
     export = DataExportResult(
         tenant_id=tenant_id,
         subject_id=subject_id,
-        exported_at=datetime.now(timezone.utc).isoformat(),
+        exported_at=datetime.now(UTC).isoformat(),
         tables={
             "predictions": [],
             "audit_logs": [],
@@ -176,7 +179,7 @@ async def scan_pii(
     scrubbed = engine.scrub_pii(body.payload)
 
     pii_found: list[str] = []
-    for key, val in body.payload.items():
+    for _key, val in body.payload.items():
         if isinstance(val, str):
             result = engine.detect_pii(val)
             if result.has_pii:

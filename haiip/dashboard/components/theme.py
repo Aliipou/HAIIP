@@ -103,8 +103,8 @@ def kpi_card(label: str, value: str, delta: str = "", delta_dir: str = "neu") ->
         f'<div class="kpi-card">'
         f'<div class="kpi-label">{label}</div>'
         f'<div class="kpi-value">{value}</div>'
-        f'{delta_html}'
-        f'</div>',
+        f"{delta_html}"
+        f"</div>",
         unsafe_allow_html=True,
     )
 

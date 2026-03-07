@@ -20,30 +20,50 @@ def render() -> None:
 
         if is_demo():
             demo_users = [
-                {"email": "admin@demo-sme.com", "full_name": "Demo Admin", "role": "admin", "is_active": True},
-                {"email": "engineer@demo-sme.com", "full_name": "Demo Engineer", "role": "engineer", "is_active": True},
-                {"email": "operator@demo-sme.com", "full_name": "Demo Operator", "role": "operator", "is_active": True},
+                {
+                    "email": "admin@demo-sme.com",
+                    "full_name": "Demo Admin",
+                    "role": "admin",
+                    "is_active": True,
+                },
+                {
+                    "email": "engineer@demo-sme.com",
+                    "full_name": "Demo Engineer",
+                    "role": "engineer",
+                    "is_active": True,
+                },
+                {
+                    "email": "operator@demo-sme.com",
+                    "full_name": "Demo Operator",
+                    "role": "operator",
+                    "is_active": True,
+                },
             ]
         else:
             demo_users = []
 
         for user in demo_users:
             role = user.get("role", "operator")
-            role_colors = {"admin": "danger", "engineer": "warning", "operator": "normal", "viewer": "low"}
+            role_colors = {
+                "admin": "danger",
+                "engineer": "warning",
+                "operator": "normal",
+                "viewer": "low",
+            }
             st.markdown(
                 f"""
                 <div style="background:#1C2333; border:1px solid #2D3748; border-radius:8px;
                             padding:0.75rem 1rem; margin-bottom:0.5rem;
                             display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <strong style="color:#E2E8F0;">{user['full_name']}</strong>
+                        <strong style="color:#E2E8F0;">{user["full_name"]}</strong>
                         <span style="color:#718096; font-size:0.8rem; margin-left:0.5rem;">
-                            {user['email']}
+                            {user["email"]}
                         </span>
                     </div>
                     <div style="display:flex; gap:0.5rem; align-items:center;">
-                        {badge(role.upper(), role_colors.get(role,'low'))}
-                        {'<span style="color:#00C851; font-size:0.8rem;">● Active</span>' if user.get('is_active') else '<span style="color:#718096;">○ Inactive</span>'}
+                        {badge(role.upper(), role_colors.get(role, "low"))}
+                        {'<span style="color:#00C851; font-size:0.8rem;">● Active</span>' if user.get("is_active") else '<span style="color:#718096;">○ Inactive</span>'}
                     </div>
                 </div>
                 """,
@@ -73,10 +93,15 @@ def render() -> None:
                 if is_demo():
                     st.success(f"User '{new_email}' registered (demo mode).")
                 else:
-                    resp = api_post("/api/v1/auth/register", {
-                        "email": new_email, "full_name": new_name,
-                        "password": new_password, "role": new_role,
-                    })
+                    resp = api_post(
+                        "/api/v1/auth/register",
+                        {
+                            "email": new_email,
+                            "full_name": new_name,
+                            "password": new_password,
+                            "role": new_role,
+                        },
+                    )
                     if resp:
                         st.success(f"✅ User '{new_email}' registered as {new_role}.")
                     else:
@@ -89,15 +114,27 @@ def render() -> None:
 
         if is_demo():
             demo_models = [
-                {"model_name": "AnomalyDetector", "model_version": "v1.2.0",
-                 "is_active": True, "trained_at": "2026-02-20T08:30:00",
-                 "metrics": '{"contamination": 0.05, "n_estimators": 100}'},
-                {"model_name": "MaintenancePredictor", "model_version": "v1.1.0",
-                 "is_active": True, "trained_at": "2026-02-18T14:00:00",
-                 "metrics": '{"accuracy": 0.943, "f1_macro": 0.891}'},
-                {"model_name": "AnomalyDetector", "model_version": "v1.1.0",
-                 "is_active": False, "trained_at": "2026-02-10T10:00:00",
-                 "metrics": '{"contamination": 0.05, "n_estimators": 100}'},
+                {
+                    "model_name": "AnomalyDetector",
+                    "model_version": "v1.2.0",
+                    "is_active": True,
+                    "trained_at": "2026-02-20T08:30:00",
+                    "metrics": '{"contamination": 0.05, "n_estimators": 100}',
+                },
+                {
+                    "model_name": "MaintenancePredictor",
+                    "model_version": "v1.1.0",
+                    "is_active": True,
+                    "trained_at": "2026-02-18T14:00:00",
+                    "metrics": '{"accuracy": 0.943, "f1_macro": 0.891}',
+                },
+                {
+                    "model_name": "AnomalyDetector",
+                    "model_version": "v1.1.0",
+                    "is_active": False,
+                    "trained_at": "2026-02-10T10:00:00",
+                    "metrics": '{"contamination": 0.05, "n_estimators": 100}',
+                },
             ]
         else:
             demo_models = []
@@ -110,16 +147,16 @@ def render() -> None:
                             padding:0.75rem 1rem; margin-bottom:0.5rem;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <strong style="color:#E2E8F0;">{model['model_name']}</strong>
+                            <strong style="color:#E2E8F0;">{model["model_name"]}</strong>
                             <code style="color:#00D4FF; font-size:0.78rem; margin-left:0.5rem;">
-                                {model['model_version']}
+                                {model["model_version"]}
                             </code>
                         </div>
                         {'<span class="badge badge-normal">ACTIVE</span>' if is_active else '<span class="badge badge-low">ARCHIVED</span>'}
                     </div>
                     <div style="font-size:0.78rem; color:#718096; margin-top:6px;">
-                        Trained: {model['trained_at'][:10]}
-                        &nbsp;·&nbsp; Metrics: <code>{model.get('metrics','{}')[:80]}</code>
+                        Trained: {model["trained_at"][:10]}
+                        &nbsp;·&nbsp; Metrics: <code>{model.get("metrics", "{}")[:80]}</code>
                     </div>
                 </div>
                 """,
@@ -144,8 +181,12 @@ def render() -> None:
             health = api_get("/api/v1/metrics/health") or {}
         else:
             health = {
-                "status": "healthy", "database": True, "redis": False,
-                "model_loaded": True, "uptime_seconds": 3847.2, "version": "0.1.0",
+                "status": "healthy",
+                "database": True,
+                "redis": False,
+                "model_loaded": True,
+                "uptime_seconds": 3847.2,
+                "version": "0.1.0",
             }
 
         k1, k2, k3, k4 = st.columns(4)

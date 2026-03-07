@@ -12,14 +12,19 @@ from haiip.core.maintenance import MaintenancePredictor
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def training_data():
     rng = np.random.default_rng(42)
     n = 600
     X = rng.normal(loc=[300, 310, 1538, 40, 100], scale=[2, 1.5, 179, 9.8, 50], size=(n, 5))
     labels = (
-        ["no_failure"] * 500 + ["TWF"] * 20 + ["HDF"] * 20
-        + ["PWF"] * 20 + ["OSF"] * 20 + ["RNF"] * 20
+        ["no_failure"] * 500
+        + ["TWF"] * 20
+        + ["HDF"] * 20
+        + ["PWF"] * 20
+        + ["OSF"] * 20
+        + ["RNF"] * 20
     )
     rng = np.random.default_rng(1)
     rng.shuffle(labels)
@@ -64,6 +69,7 @@ def _block_shap(monkeypatch):
 
 # ── Explainer lifecycle ────────────────────────────────────────────────────────
 
+
 def test_explainers_none_after_fit(training_data):
     X, y = training_data
     p = MaintenancePredictor(n_estimators=50)
@@ -83,12 +89,14 @@ def test_explainers_reset_on_refit(fitted, training_data):
 
 # ── _build_shap_explainers branches ──────────────────────────────────────────
 
+
 def test_build_explainers_success_no_rul(fitted):
     """Mock shap.TreeExplainer to verify the success path (clf only, no rul)."""
     mock_shap = MagicMock()
     mock_clf_explainer = MagicMock()
     mock_shap.TreeExplainer.return_value = mock_clf_explainer
     import sys
+
     orig = sys.modules.get("shap")
     sys.modules["shap"] = mock_shap
     try:
@@ -112,6 +120,7 @@ def test_build_explainers_success_with_rul(fitted_with_rul):
     rul_exp = MagicMock()
     mock_shap.TreeExplainer.side_effect = [clf_exp, rul_exp]
     import sys
+
     orig = sys.modules.get("shap")
     sys.modules["shap"] = mock_shap
     try:
@@ -139,6 +148,7 @@ def test_build_explainers_general_exception(fitted):
     mock_shap = MagicMock()
     mock_shap.TreeExplainer.side_effect = RuntimeError("internal error")
     import sys
+
     orig = sys.modules.get("shap")
     sys.modules["shap"] = mock_shap
     try:
@@ -153,6 +163,7 @@ def test_build_explainers_general_exception(fitted):
 
 
 # ── _shap_for_prediction branches ─────────────────────────────────────────────
+
 
 def test_shap_for_prediction_none_when_build_fails(fitted, monkeypatch):
     """Explainer None → build fails → return None."""
@@ -170,9 +181,7 @@ def test_shap_for_prediction_list_sv(fitted):
     mock_explainer = MagicMock()
     n_classes = len(fitted._classes)
     # Simulate list-of-arrays from SHAP multi-class
-    mock_explainer.shap_values.return_value = [
-        np.ones((1, 5)) for _ in range(n_classes)
-    ]
+    mock_explainer.shap_values.return_value = [np.ones((1, 5)) for _ in range(n_classes)]
     fitted._shap_clf_explainer = mock_explainer
     arr = fitted._scaler.transform(np.array([SAMPLE]))
     result = fitted._shap_for_prediction(arr, 0)
@@ -188,7 +197,7 @@ def test_shap_for_prediction_3d_ndarray_sv(fitted):
     n_classes = len(fitted._classes)
     sv_3d = np.ones((1, n_classes, 5))
     mock_sv = MagicMock()
-    mock_sv.__len__ = lambda s: 1           # not a list
+    mock_sv.__len__ = lambda s: 1  # not a list
     mock_sv.ndim = 3
     mock_sv.__getitem__ = lambda s, idx: sv_3d[idx]
     type(mock_sv).ndim = property(lambda s: 3)
@@ -222,6 +231,7 @@ def test_shap_for_prediction_exception_returns_none(fitted):
 
 
 # ── _shap_rul_for branches ────────────────────────────────────────────────────
+
 
 def test_shap_rul_for_returns_none_when_rul_not_fitted(fitted):
     arr = fitted._scaler.transform(np.array([SAMPLE]))
@@ -257,10 +267,17 @@ def test_shap_rul_for_exception_returns_none(fitted_with_rul):
 
 # ── predict() integration ─────────────────────────────────────────────────────
 
+
 def test_predict_required_keys(fitted):
     result = fitted.predict(SAMPLE)
-    for key in ("label", "confidence", "failure_probability", "rul_cycles",
-                "class_probabilities", "explanation"):
+    for key in (
+        "label",
+        "confidence",
+        "failure_probability",
+        "rul_cycles",
+        "class_probabilities",
+        "explanation",
+    ):
         assert key in result
 
 
@@ -304,9 +321,12 @@ def test_predict_shap_keys_match_feature_names(fitted):
 def test_predict_assigns_shap_values_when_not_none(fitted):
     """Cover result['shap_values'] = shap_clf (line 195) by mocking _shap_for_prediction."""
     from unittest.mock import patch
-    mock_sv = {name: 0.01 for name in fitted.feature_names}
-    with patch.object(fitted, "_shap_for_prediction", return_value=mock_sv), \
-         patch.object(fitted, "_shap_rul_for", return_value=None):
+
+    mock_sv = dict.fromkeys(fitted.feature_names, 0.01)
+    with (
+        patch.object(fitted, "_shap_for_prediction", return_value=mock_sv),
+        patch.object(fitted, "_shap_rul_for", return_value=None),
+    ):
         result = fitted.predict(SAMPLE)
     assert result["shap_values"] == mock_sv
     assert "shap_rul_values" not in result
@@ -315,10 +335,13 @@ def test_predict_assigns_shap_values_when_not_none(fitted):
 def test_predict_assigns_shap_rul_values_when_not_none(fitted_with_rul):
     """Cover result['shap_rul_values'] = shap_rul (line 197) by mocking _shap_rul_for."""
     from unittest.mock import patch
-    mock_sv = {name: 0.02 for name in fitted_with_rul.feature_names}
-    mock_rul_sv = {name: 0.03 for name in fitted_with_rul.feature_names}
-    with patch.object(fitted_with_rul, "_shap_for_prediction", return_value=mock_sv), \
-         patch.object(fitted_with_rul, "_shap_rul_for", return_value=mock_rul_sv):
+
+    mock_sv = dict.fromkeys(fitted_with_rul.feature_names, 0.02)
+    mock_rul_sv = dict.fromkeys(fitted_with_rul.feature_names, 0.03)
+    with (
+        patch.object(fitted_with_rul, "_shap_for_prediction", return_value=mock_sv),
+        patch.object(fitted_with_rul, "_shap_rul_for", return_value=mock_rul_sv),
+    ):
         result = fitted_with_rul.predict(SAMPLE)
     assert result["shap_values"] == mock_sv
     assert result["shap_rul_values"] == mock_rul_sv
@@ -338,6 +361,7 @@ def test_shap_rul_for_success_path_returns_dict(fitted_with_rul):
 
 
 # ── Untrained model ───────────────────────────────────────────────────────────
+
 
 def test_untrained_returns_safe_default():
     p = MaintenancePredictor()

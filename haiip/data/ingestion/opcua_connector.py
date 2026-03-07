@@ -24,11 +24,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +36,11 @@ logger = logging.getLogger(__name__)
 # Hardware mode enum — no implicit / hidden states
 # ---------------------------------------------------------------------------
 
+
 class DataSourceMode(str, Enum):
-    REAL_HARDWARE     = "real_hardware"      # OPC UA confirmed connected and verified
-    SIMULATION        = "simulation"          # synthetic data, no hardware attempted
-    HARDWARE_FALLBACK = "hardware_fallback"   # tried hardware, fell back to simulation
+    REAL_HARDWARE = "real_hardware"  # OPC UA confirmed connected and verified
+    SIMULATION = "simulation"  # synthetic data, no hardware attempted
+    HARDWARE_FALLBACK = "hardware_fallback"  # tried hardware, fell back to simulation
 
 
 class HardwareNotConnectedError(RuntimeError):
@@ -52,6 +53,7 @@ class HardwareNotConnectedError(RuntimeError):
 # ---------------------------------------------------------------------------
 # Sensor reading with mandatory mode tag
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SensorReading:
@@ -68,14 +70,14 @@ class SensorReading:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "machine_id":          self.machine_id,
-            "timestamp":           self.timestamp.isoformat(),
-            "air_temperature":     self.air_temperature,
+            "machine_id": self.machine_id,
+            "timestamp": self.timestamp.isoformat(),
+            "air_temperature": self.air_temperature,
             "process_temperature": self.process_temperature,
-            "rotational_speed":    self.rotational_speed,
-            "torque":              self.torque,
-            "tool_wear":           self.tool_wear,
-            "data_source_mode":    self.data_source_mode.value,
+            "rotational_speed": self.rotational_speed,
+            "torque": self.torque,
+            "tool_wear": self.tool_wear,
+            "data_source_mode": self.data_source_mode.value,
             "data_quality_warnings": self.data_quality_warnings,
         }
 
@@ -85,11 +87,11 @@ class SensorReading:
 # ---------------------------------------------------------------------------
 
 _SENSOR_RANGES = {
-    "air_temperature":     (270.0, 330.0),   # Kelvin — physical plant range
+    "air_temperature": (270.0, 330.0),  # Kelvin — physical plant range
     "process_temperature": (280.0, 380.0),
-    "rotational_speed":    (0.0,   3000.0),  # rpm
-    "torque":              (-5.0,  100.0),   # Nm (negative allowed briefly)
-    "tool_wear":           (0.0,   300.0),   # minutes
+    "rotational_speed": (0.0, 3000.0),  # rpm
+    "torque": (-5.0, 100.0),  # Nm (negative allowed briefly)
+    "tool_wear": (0.0, 300.0),  # minutes
 }
 _STALE_THRESHOLD_SECONDS = 300  # 5 minutes
 
@@ -100,10 +102,14 @@ def validate_reading(reading: SensorReading) -> list[str]:
     Caller decides whether to drop or forward with warnings.
     """
     import math
+
     warnings: list[str] = []
     sensor_fields = [
-        "air_temperature", "process_temperature",
-        "rotational_speed", "torque", "tool_wear",
+        "air_temperature",
+        "process_temperature",
+        "rotational_speed",
+        "torque",
+        "tool_wear",
     ]
 
     values = {f: getattr(reading, f) for f in sensor_fields}
@@ -124,16 +130,14 @@ def validate_reading(reading: SensorReading) -> list[str]:
                     f"outside expected range [{lo}, {hi}]"
                 )
 
-    age = (datetime.now(timezone.utc) - reading.timestamp.replace(tzinfo=timezone.utc)).total_seconds()
+    age = (datetime.now(UTC) - reading.timestamp.replace(tzinfo=UTC)).total_seconds()
     if age > _STALE_THRESHOLD_SECONDS:
         warnings.append(
             f"STALE_DATA: reading timestamp is {age:.0f}s old "
             f"(threshold {_STALE_THRESHOLD_SECONDS}s)"
         )
     if age < -60:
-        warnings.append(
-            f"FUTURE_TIMESTAMP: reading timestamp is {-age:.0f}s in the future"
-        )
+        warnings.append(f"FUTURE_TIMESTAMP: reading timestamp is {-age:.0f}s in the future")
 
     return warnings
 
@@ -141,6 +145,7 @@ def validate_reading(reading: SensorReading) -> list[str]:
 # ---------------------------------------------------------------------------
 # OPC UA Connector with explicit mode
 # ---------------------------------------------------------------------------
+
 
 class OPCUAConnector:
     """
@@ -150,7 +155,7 @@ class OPCUAConnector:
     If connection fails, mode = HARDWARE_FALLBACK with logged reason.
     """
 
-    MAX_BUFFER_READINGS = 1000   # bounded queue to prevent OOM on long disconnects
+    MAX_BUFFER_READINGS = 1000  # bounded queue to prevent OOM on long disconnects
 
     def __init__(
         self,
@@ -161,17 +166,17 @@ class OPCUAConnector:
         poll_interval: float = 1.0,
         connection_timeout: float = 10.0,
     ) -> None:
-        self._endpoint         = endpoint
-        self._machine_id       = machine_id
-        self._namespace        = namespace
-        self._node_ids         = node_ids or {
-            "air_temperature":     f"ns={namespace};i=1001",
+        self._endpoint = endpoint
+        self._machine_id = machine_id
+        self._namespace = namespace
+        self._node_ids = node_ids or {
+            "air_temperature": f"ns={namespace};i=1001",
             "process_temperature": f"ns={namespace};i=1002",
-            "rotational_speed":    f"ns={namespace};i=1003",
-            "torque":              f"ns={namespace};i=1004",
-            "tool_wear":           f"ns={namespace};i=1005",
+            "rotational_speed": f"ns={namespace};i=1003",
+            "torque": f"ns={namespace};i=1004",
+            "tool_wear": f"ns={namespace};i=1005",
         }
-        self._poll_interval    = poll_interval
+        self._poll_interval = poll_interval
         self._connection_timeout = connection_timeout
         self._mode: DataSourceMode = DataSourceMode.SIMULATION
         self._last_connection_error: str = "not yet attempted"
@@ -214,11 +219,16 @@ class OPCUAConnector:
         """
         try:
             from asyncua import Client  # type: ignore[import]
+
             client = Client(url=self._endpoint, timeout=self._connection_timeout)
             await asyncio.wait_for(client.connect(), timeout=self._connection_timeout)
             self._client = client
-            self._mode   = DataSourceMode.REAL_HARDWARE
-            logger.info("opcua_connected endpoint=%s machine=%s", self._endpoint, self._machine_id)
+            self._mode = DataSourceMode.REAL_HARDWARE
+            logger.info(
+                "opcua_connected endpoint=%s machine=%s",
+                self._endpoint,
+                self._machine_id,
+            )
             return True
         except ImportError:
             reason = "asyncua not installed"
@@ -232,7 +242,9 @@ class OPCUAConnector:
             self._mode = DataSourceMode.HARDWARE_FALLBACK
             logger.warning(
                 "opcua_connection_failed endpoint=%s reason=%s mode=%s",
-                self._endpoint, reason, self._mode.value,
+                self._endpoint,
+                reason,
+                self._mode.value,
             )
             return False
 
@@ -245,7 +257,7 @@ class OPCUAConnector:
             self._client = None
         self._mode = DataSourceMode.SIMULATION
 
-    async def __aenter__(self) -> "OPCUAConnector":
+    async def __aenter__(self) -> OPCUAConnector:
         await self.connect()
         return self
 
@@ -285,7 +297,7 @@ class OPCUAConnector:
         rng = random.Random()
         return SensorReading(
             machine_id=self._machine_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             air_temperature=298.0 + rng.gauss(0, 0.5),
             process_temperature=308.0 + rng.gauss(0, 0.5),
             rotational_speed=1500.0 + rng.gauss(0, 20.0),

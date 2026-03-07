@@ -31,8 +31,9 @@ STRATEGIES = ("uncertainty", "margin", "entropy", "coreset", "random")
 @dataclass
 class QueryBatch:
     """A batch of samples selected for human labeling."""
+
     indices: list[int]
-    scores: list[float]           # informativeness score (higher = more informative)
+    scores: list[float]  # informativeness score (higher = more informative)
     strategy: str
     budget: int
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -173,9 +174,7 @@ class ActiveLearningSampler:
         selected = scores[:budget]
         return [s[0] for s in selected], [s[1] for s in selected]
 
-    def _coreset_sampling(
-        self, X: np.ndarray, budget: int
-    ) -> tuple[list[int], list[float]]:
+    def _coreset_sampling(self, X: np.ndarray, budget: int) -> tuple[list[int], list[float]]:
         """Greedy k-center algorithm — maximise coverage of feature space.
 
         Select points that minimize the maximum distance to the nearest
@@ -212,9 +211,7 @@ class ActiveLearningSampler:
         return selected[:budget], scores[:budget]
 
     @staticmethod
-    def _update_dists(
-        X: np.ndarray, min_dists: np.ndarray, center_idx: int
-    ) -> np.ndarray:
+    def _update_dists(X: np.ndarray, min_dists: np.ndarray, center_idx: int) -> np.ndarray:
         """Update min distances after adding a new center."""
         dists = np.linalg.norm(X - X[center_idx], axis=1)
         return np.minimum(min_dists, dists)

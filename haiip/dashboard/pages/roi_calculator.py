@@ -27,41 +27,51 @@ def render() -> None:
         shifts_per_day = st.slider("Shifts per day", 1, 3, 2)
         production_days = st.slider("Production days per year", 200, 365, 250)
         hourly_output = st.number_input(
-            "Production value per machine-hour (€)", value=850, min_value=50, max_value=10000, step=50
+            "Production value per machine-hour (€)",
+            value=850,
+            min_value=50,
+            max_value=10000,
+            step=50,
         )
 
     with col_b:
         st.markdown("**Current Failure Profile**")
-        unplanned_stops_year = st.slider(
-            "Unplanned stops per machine per year", 1, 30, 8
-        )
-        avg_downtime_hours = st.slider(
-            "Average downtime per stop (hours)", 1, 48, 6
-        )
+        unplanned_stops_year = st.slider("Unplanned stops per machine per year", 1, 30, 8)
+        avg_downtime_hours = st.slider("Average downtime per stop (hours)", 1, 48, 6)
         repair_cost_per_stop = st.number_input(
-            "Avg repair cost per stop (€)", value=3200, min_value=100, max_value=50000, step=100
+            "Avg repair cost per stop (€)",
+            value=3200,
+            min_value=100,
+            max_value=50000,
+            step=100,
         )
-        tool_changes_year = st.slider(
-            "Reactive tool changes per machine per year", 0, 50, 12
-        )
+        tool_changes_year = st.slider("Reactive tool changes per machine per year", 0, 50, 12)
         tool_cost = st.number_input(
-            "Cost per emergency tool change (€)", value=420, min_value=10, max_value=5000, step=10
+            "Cost per emergency tool change (€)",
+            value=420,
+            min_value=10,
+            max_value=5000,
+            step=10,
         )
 
     with st.expander("⚙️ HAIIP Performance Assumptions (adjustable)"):
         col_c, col_d = st.columns(2)
         with col_c:
             downtime_reduction = st.slider(
-                "Unplanned downtime reduction (%)", 20, 80, 45,
-                help="Industry benchmark: 35–55% reduction with predictive maintenance"
+                "Unplanned downtime reduction (%)",
+                20,
+                80,
+                45,
+                help="Industry benchmark: 35–55% reduction with predictive maintenance",
             )
-            tool_waste_reduction = st.slider(
-                "Emergency tool change reduction (%)", 20, 70, 40
-            )
+            tool_waste_reduction = st.slider("Emergency tool change reduction (%)", 20, 70, 40)
         with col_d:
             detection_accuracy = st.slider("Model detection accuracy (%)", 80, 99, 94)
             implementation_cost = st.number_input(
-                "HAIIP implementation cost (€/year)", value=18000, min_value=1000, step=1000
+                "HAIIP implementation cost (€/year)",
+                value=18000,
+                min_value=1000,
+                step=1000,
             )
 
     # ── Calculations ──────────────────────────────────────────────────────────
@@ -202,18 +212,30 @@ def render() -> None:
     # ── Export ────────────────────────────────────────────────────────────────
     st.markdown("---")
     if st.button("📥 Export report (CSV)", use_container_width=False):
-        import io
         import pandas as pd
-        report = pd.DataFrame({
-            "Metric": [
-                "Machines", "Annual savings (€)", "Net benefit (€)", "ROI (%)",
-                "Payback (months)", "OEE improvement (pp)", "Implementation cost (€)"
-            ],
-            "Value": [
-                n_machines, total_savings, net_benefit, roi_pct,
-                payback_months, oee_improvement, implementation_cost
-            ]
-        })
+
+        report = pd.DataFrame(
+            {
+                "Metric": [
+                    "Machines",
+                    "Annual savings (€)",
+                    "Net benefit (€)",
+                    "ROI (%)",
+                    "Payback (months)",
+                    "OEE improvement (pp)",
+                    "Implementation cost (€)",
+                ],
+                "Value": [
+                    n_machines,
+                    total_savings,
+                    net_benefit,
+                    roi_pct,
+                    payback_months,
+                    oee_improvement,
+                    implementation_cost,
+                ],
+            }
+        )
         csv = report.to_csv(index=False)
         st.download_button(
             "Download CSV",

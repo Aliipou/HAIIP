@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models — one file, all tables visible at a glance."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -20,7 +20,7 @@ from haiip.api.database import Base
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _new_uuid() -> str:
@@ -40,9 +40,7 @@ class Tenant(Base):
     )
 
     users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
-    predictions: Mapped[list["Prediction"]] = relationship(
-        "Prediction", back_populates="tenant"
-    )
+    predictions: Mapped[list["Prediction"]] = relationship("Prediction", back_populates="tenant")
     alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="tenant")
 
     __table_args__ = (Index("ix_tenants_slug", "slug"),)
@@ -68,15 +66,11 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
-    last_login: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
 
-    __table_args__ = (
-        Index("ix_users_email_tenant", "email", "tenant_id", unique=True),
-    )
+    __table_args__ = (Index("ix_users_email_tenant", "email", "tenant_id", unique=True),)
 
 
 # ── Prediction ────────────────────────────────────────────────────────────────
@@ -133,9 +127,7 @@ class Alert(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     is_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     acknowledged_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    acknowledged_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
@@ -186,9 +178,7 @@ class ModelRegistry(Base):
     )
     dataset_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    __table_args__ = (
-        Index("ix_model_registry_tenant_name", "tenant_id", "model_name"),
-    )
+    __table_args__ = (Index("ix_model_registry_tenant_name", "tenant_id", "model_name"),)
 
 
 # ── FeedbackLog ───────────────────────────────────────────────────────────────
@@ -206,6 +196,4 @@ class FeedbackLog(Base):
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
 
-    __table_args__ = (
-        Index("ix_feedback_prediction", "prediction_id"),
-    )
+    __table_args__ = (Index("ix_feedback_prediction", "prediction_id"),)

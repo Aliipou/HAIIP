@@ -18,6 +18,7 @@ T = TypeVar("T")
 
 # ── Base schemas ──────────────────────────────────────────────────────────────
 
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -27,6 +28,7 @@ class ORMModel(BaseModel):
 
 
 # ── Generic pagination / response wrappers ────────────────────────────────────
+
 
 class Page(BaseModel, Generic[T]):
     items: list[T]
@@ -53,6 +55,7 @@ class ErrorResponse(BaseModel):
 
 # ── Auth schemas ──────────────────────────────────────────────────────────────
 
+
 class LoginRequest(StrictModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -71,6 +74,7 @@ class RefreshRequest(StrictModel):
 
 
 # ── User schemas ──────────────────────────────────────────────────────────────
+
 
 class UserCreate(StrictModel):
     email: EmailStr
@@ -101,14 +105,16 @@ class UserResponse(ORMModel):
 
 # ── Prediction schemas ────────────────────────────────────────────────────────
 
+
 class SensorReading(StrictModel):
     """Single sensor reading sent to the predict endpoint."""
+
     machine_id: str = Field(min_length=1, max_length=128)
-    air_temperature: float = Field(ge=-50.0, le=200.0)       # Celsius
-    process_temperature: float = Field(ge=-50.0, le=500.0)   # Celsius
-    rotational_speed: float = Field(ge=0.0, le=50000.0)      # RPM
-    torque: float = Field(ge=0.0, le=1000.0)                  # Nm
-    tool_wear: float = Field(ge=0.0, le=500.0)                # minutes
+    air_temperature: float = Field(ge=-50.0, le=200.0)  # Celsius
+    process_temperature: float = Field(ge=-50.0, le=500.0)  # Celsius
+    rotational_speed: float = Field(ge=0.0, le=50000.0)  # RPM
+    torque: float = Field(ge=0.0, le=1000.0)  # Nm
+    tool_wear: float = Field(ge=0.0, le=500.0)  # minutes
     extra_features: dict[str, float] | None = None
 
 
@@ -134,6 +140,7 @@ class BatchPredictRequest(StrictModel):
 
 # ── Alert schemas ─────────────────────────────────────────────────────────────
 
+
 class AlertResponse(ORMModel):
     id: str
     machine_id: str
@@ -150,6 +157,7 @@ class AcknowledgeAlertRequest(StrictModel):
 
 
 # ── Metrics schemas ───────────────────────────────────────────────────────────
+
 
 class MachineMetrics(BaseModel):
     machine_id: str
@@ -171,6 +179,7 @@ class SystemHealthResponse(BaseModel):
 
 # ── Feedback schemas ──────────────────────────────────────────────────────────
 
+
 class FeedbackRequest(StrictModel):
     prediction_id: str
     was_correct: bool
@@ -188,6 +197,7 @@ class FeedbackResponse(ORMModel):
 
 # ── RAG / Query schemas ────────────────────────────────────────────────────────
 
+
 class QueryRequest(StrictModel):
     question: str = Field(min_length=3, max_length=2000)
     machine_id: str | None = None
@@ -202,6 +212,7 @@ class QueryResponse(BaseModel):
 
 
 # ── Tenant schemas ────────────────────────────────────────────────────────────
+
 
 class TenantCreate(StrictModel):
     name: str = Field(min_length=2, max_length=128)

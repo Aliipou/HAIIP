@@ -53,14 +53,14 @@ class EdgeInferenceEngine:
         self._onnx_session: Any = None
         self._sklearn_detector: Any = None
         self._scaler: Any = None
-        self._mode: str = "not_loaded"   # onnx | sklearn | not_loaded
+        self._mode: str = "not_loaded"  # onnx | sklearn | not_loaded
         self._model_hash: str = ""
         self._feature_names: list[str] = FEATURE_NAMES
 
     # ── Loading ───────────────────────────────────────────────────────────────
 
     @classmethod
-    def load(cls, model_dir: Path | str) -> "EdgeInferenceEngine":
+    def load(cls, model_dir: Path | str) -> EdgeInferenceEngine:
         """Load model from directory. Tries ONNX first, falls back to joblib."""
         model_dir = Path(model_dir)
         engine = cls()
@@ -89,6 +89,7 @@ class EdgeInferenceEngine:
     def _try_load_onnx(self, onnx_path: Path) -> bool:
         try:
             import onnxruntime as ort  # type: ignore[import]
+
             self._onnx_session = ort.InferenceSession(
                 str(onnx_path),
                 providers=["CPUExecutionProvider"],
@@ -159,9 +160,7 @@ class EdgeInferenceEngine:
         )
         z_scores = arr_scaled[0].tolist()
         explanation = {
-            name: round(z, 3)
-            for name, z in zip(self._feature_names, z_scores)
-            if abs(z) > 1.5
+            name: round(z, 3) for name, z in zip(self._feature_names, z_scores) if abs(z) > 1.5
         }
         return {
             "label": label,
@@ -191,7 +190,9 @@ class EdgeInferenceEngine:
         """
         try:
             from skl2onnx import convert_sklearn  # type: ignore[import]
-            from skl2onnx.common.data_types import FloatTensorType  # type: ignore[import]
+            from skl2onnx.common.data_types import (
+                FloatTensorType,  # type: ignore[import]
+            )
         except ImportError as exc:
             raise ImportError(
                 "skl2onnx required for ONNX export. Install: pip install skl2onnx"

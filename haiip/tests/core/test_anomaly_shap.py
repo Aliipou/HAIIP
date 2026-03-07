@@ -12,12 +12,11 @@ from haiip.core.anomaly import AnomalyDetector
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def normal_data() -> np.ndarray:
     rng = np.random.default_rng(42)
-    return rng.normal(
-        loc=[300, 310, 1538, 40, 100], scale=[2, 1.5, 179, 9.8, 50], size=(500, 5)
-    )
+    return rng.normal(loc=[300, 310, 1538, 40, 100], scale=[2, 1.5, 179, 9.8, 50], size=(500, 5))
 
 
 @pytest.fixture
@@ -45,6 +44,7 @@ def _block_shap(monkeypatch):
 
 # ── Explainer lifecycle ────────────────────────────────────────────────────────
 
+
 def test_shap_explainer_none_after_fit(normal_data):
     d = AnomalyDetector()
     d.fit(normal_data)
@@ -58,6 +58,7 @@ def test_shap_explainer_reset_on_refit(fitted_detector, normal_data):
 
 
 # ── _build_shap_explainer branches ────────────────────────────────────────────
+
 
 def test_build_shap_explainer_success(fitted_detector):
     pytest.importorskip("shap")
@@ -84,6 +85,7 @@ def test_build_shap_explainer_general_exception(fitted_detector):
 
 
 # ── _shap_values_for branches ─────────────────────────────────────────────────
+
 
 def test_shap_values_for_returns_none_when_build_fails(fitted_detector, monkeypatch):
     """_shap_explainer None → build → still None → returns None."""
@@ -128,6 +130,7 @@ def test_shap_values_for_returns_dict_on_success(fitted_detector):
 
 
 # ── predict() branches ─────────────────────────────────────────────────────────
+
 
 def test_predict_required_keys_always_present(fitted_detector):
     result = fitted_detector.predict(SAMPLE)
@@ -185,6 +188,7 @@ def test_predict_custom_feature_names_in_shap(normal_data):
 
 # ── predict_batch() branches ──────────────────────────────────────────────────
 
+
 def test_predict_batch_length(fitted_detector):
     results = fitted_detector.predict_batch(np.array([SAMPLE] * 5))
     assert len(results) == 5
@@ -236,6 +240,7 @@ def test_predict_batch_entry_has_shap_when_not_none(fitted_detector):
 
 
 # ── Untrained model ───────────────────────────────────────────────────────────
+
 
 def test_untrained_predict_returns_safe_result():
     d = AnomalyDetector()

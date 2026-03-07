@@ -8,8 +8,8 @@ from haiip.data.loaders.cmapss import CMAPSSLoader
 from haiip.data.loaders.cwru import CWRULoader
 from haiip.data.loaders.mimii import MIMIILoader
 
-
 # ── AI4I Loader ───────────────────────────────────────────────────────────────
+
 
 class TestAI4ILoader:
     def test_synthetic_fallback_shape(self, tmp_path):
@@ -45,7 +45,6 @@ class TestAI4ILoader:
         assert len(normal_df) > 0
 
     def test_preprocess_removes_negatives(self, tmp_path):
-        import pandas as pd
         loader = AI4ILoader(cache_dir=tmp_path)
         df = loader._synthetic_fallback(n_samples=100)
         df.loc[0, "rotational_speed"] = -1.0  # inject invalid
@@ -71,6 +70,7 @@ class TestAI4ILoader:
 
 
 # ── CWRU Loader ───────────────────────────────────────────────────────────────
+
 
 class TestCWRULoader:
     def test_invalid_sample_rate(self, tmp_path):
@@ -122,6 +122,7 @@ class TestCWRULoader:
 
 # ── CMAPSS Loader ─────────────────────────────────────────────────────────────
 
+
 class TestCMAPSSLoader:
     def test_invalid_subset(self, tmp_path):
         with pytest.raises(ValueError, match="subset"):
@@ -160,6 +161,7 @@ class TestCMAPSSLoader:
 
 # ── MIMII Loader ──────────────────────────────────────────────────────────────
 
+
 class TestMIMIILoader:
     def test_invalid_machine_type(self, tmp_path):
         with pytest.raises(ValueError, match="machine_type"):
@@ -186,7 +188,8 @@ class TestMIMIILoader:
 
     def test_feature_columns_count(self, tmp_path):
         loader = MIMIILoader(cache_dir=tmp_path)
-        from haiip.data.loaders.mimii import N_MELS, FRAMES_PER_CLIP
+        from haiip.data.loaders.mimii import FRAMES_PER_CLIP, N_MELS
+
         assert len(loader.feature_columns) == N_MELS * FRAMES_PER_CLIP
 
     def test_load_returns_dataframe(self, tmp_path):

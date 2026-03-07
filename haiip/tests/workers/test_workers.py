@@ -8,16 +8,15 @@ Coverage strategy:
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_self_mock(max_retries: int = 2):
     """Mock Celery task self for bound tasks."""
@@ -30,6 +29,7 @@ def _make_self_mock(max_retries: int = 2):
 
 # ── train_on_ai4i ──────────────────────────────────────────────────────────
 
+
 class TestTrainOnAI4I:
     """train_on_ai4i: bind=True Celery task.
 
@@ -38,7 +38,9 @@ class TestTrainOnAI4I:
     """
 
     def _run(self, tmp_path, tenant_id="test-tenant"):
-        import sys, pandas as pd
+        import sys
+
+        import pandas as pd
 
         fake_df = pd.DataFrame({"f1": [1.0, 2.0], "f2": [3.0, 4.0]})
         mock_loader = MagicMock()
@@ -49,10 +51,18 @@ class TestTrainOnAI4I:
         ai4i_mod = sys.modules.get("haiip.data.loaders.ai4i")
         anomaly_mod = sys.modules.get("haiip.core.anomaly")
         try:
-            sys.modules["haiip.data.loaders.ai4i"] = MagicMock(AI4ILoader=MagicMock(return_value=mock_loader))
-            sys.modules["haiip.core.anomaly"] = MagicMock(AnomalyDetector=MagicMock(return_value=mock_detector))
+            sys.modules["haiip.data.loaders.ai4i"] = MagicMock(
+                AI4ILoader=MagicMock(return_value=mock_loader)
+            )
+            sys.modules["haiip.core.anomaly"] = MagicMock(
+                AnomalyDetector=MagicMock(return_value=mock_detector)
+            )
             from haiip.workers.tasks import train_on_ai4i
-            with patch.object(Path, "mkdir"), patch.object(train_on_ai4i, "update_state"):
+
+            with (
+                patch.object(Path, "mkdir"),
+                patch.object(train_on_ai4i, "update_state"),
+            ):
                 result = train_on_ai4i.__wrapped__(
                     tenant_id=tenant_id, contamination=0.05, artifact_path=str(tmp_path)
                 )
@@ -77,21 +87,21 @@ class TestTrainOnAI4I:
     def test_failure_triggers_retry(self, tmp_path):
         """Exception during training causes task retry."""
         import sys
+
         ai4i_mod = sys.modules.get("haiip.data.loaders.ai4i")
         try:
             sys.modules["haiip.data.loaders.ai4i"] = MagicMock(
                 AI4ILoader=MagicMock(side_effect=RuntimeError("load failed"))
             )
             from haiip.workers.tasks import train_on_ai4i
+
             mock_retry = MagicMock(side_effect=Exception("retry-triggered"))
             with (
                 patch.object(train_on_ai4i, "retry", mock_retry),
                 patch.object(train_on_ai4i, "update_state"),
             ):
                 with pytest.raises(Exception, match="retry-triggered"):
-                    train_on_ai4i.__wrapped__(
-                        tenant_id="t", artifact_path=str(tmp_path)
-                    )
+                    train_on_ai4i.__wrapped__(tenant_id="t", artifact_path=str(tmp_path))
         finally:
             if ai4i_mod is not None:
                 sys.modules["haiip.data.loaders.ai4i"] = ai4i_mod
@@ -101,9 +111,12 @@ class TestTrainOnAI4I:
 
 # ── retrain_anomaly_model ──────────────────────────────────────────────────
 
+
 class TestRetrainAnomalyModel:
     def _run(self, tmp_path, feedback=None):
-        import sys, pandas as pd
+        import sys
+
+        import pandas as pd
 
         fake_df = pd.DataFrame({"f1": [1.0, 2.0], "f2": [3.0, 4.0]})
         mock_loader = MagicMock()
@@ -114,13 +127,19 @@ class TestRetrainAnomalyModel:
         ai4i_mod = sys.modules.get("haiip.data.loaders.ai4i")
         anomaly_mod = sys.modules.get("haiip.core.anomaly")
         try:
-            sys.modules["haiip.data.loaders.ai4i"] = MagicMock(AI4ILoader=MagicMock(return_value=mock_loader))
-            sys.modules["haiip.core.anomaly"] = MagicMock(AnomalyDetector=MagicMock(return_value=mock_detector))
+            sys.modules["haiip.data.loaders.ai4i"] = MagicMock(
+                AI4ILoader=MagicMock(return_value=mock_loader)
+            )
+            sys.modules["haiip.core.anomaly"] = MagicMock(
+                AnomalyDetector=MagicMock(return_value=mock_detector)
+            )
             from haiip.workers.tasks import retrain_anomaly_model
-            with patch.object(Path, "mkdir"), patch.object(retrain_anomaly_model, "update_state"):
-                result = retrain_anomaly_model.__wrapped__(
-                    tenant_id="t", feedback_records=feedback
-                )
+
+            with (
+                patch.object(Path, "mkdir"),
+                patch.object(retrain_anomaly_model, "update_state"),
+            ):
+                result = retrain_anomaly_model.__wrapped__(tenant_id="t", feedback_records=feedback)
         finally:
             if ai4i_mod is not None:
                 sys.modules["haiip.data.loaders.ai4i"] = ai4i_mod
@@ -144,12 +163,14 @@ class TestRetrainAnomalyModel:
 
     def test_retrain_failure_retries(self, tmp_path):
         import sys
+
         ai4i_mod = sys.modules.get("haiip.data.loaders.ai4i")
         try:
             sys.modules["haiip.data.loaders.ai4i"] = MagicMock(
                 AI4ILoader=MagicMock(side_effect=RuntimeError("disk error"))
             )
             from haiip.workers.tasks import retrain_anomaly_model
+
             mock_retry = MagicMock(side_effect=Exception("retry-triggered"))
             with (
                 patch.object(retrain_anomaly_model, "retry", mock_retry),
@@ -165,6 +186,7 @@ class TestRetrainAnomalyModel:
 
 # ── run_drift_check ────────────────────────────────────────────────────────
 
+
 class TestRunDriftCheck:
     def test_skips_when_no_reference_files(self, tmp_path):
         """When reference/current data files don't exist, result is 'skipped'."""
@@ -179,7 +201,7 @@ class TestRunDriftCheck:
 
     def test_runs_drift_check_with_files(self, tmp_path):
         """With reference + current files, drift check runs."""
-        from haiip.workers.tasks import run_drift_check, retrain_anomaly_model
+        from haiip.workers.tasks import retrain_anomaly_model, run_drift_check
 
         tenant_id = "demo"
         ref_path = tmp_path / tenant_id
@@ -212,7 +234,7 @@ class TestRunDriftCheck:
 
     def test_drift_exceeds_threshold_triggers_retrain(self, tmp_path):
         """Critical drift triggers retrain task delay."""
-        from haiip.workers.tasks import run_drift_check, retrain_anomaly_model
+        from haiip.workers.tasks import retrain_anomaly_model, run_drift_check
 
         tenant_id = "sme-fi"
         ref_path = tmp_path / tenant_id
@@ -270,10 +292,10 @@ class TestRunDriftCheck:
 
 # ── generate_alert ─────────────────────────────────────────────────────────
 
+
 class TestGenerateAlert:
     def test_alert_created_in_db(self):
         """Alert task creates DB record and returns alert_id."""
-        from haiip.workers.tasks import generate_alert
 
         mock_alert = MagicMock()
         mock_alert.id = "alert-uuid-123"
@@ -288,38 +310,47 @@ class TestGenerateAlert:
         # Test severity mapping logic via direct inspection
         # The task uses asyncio.run internally — test the mapping
         severity_map = {
-            "critical": "critical", "high": "high",
-            "medium": "medium", "low": "low"
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
         }
         for k, v in severity_map.items():
             assert severity_map.get(k, "medium") == v
 
     def test_unknown_severity_defaults_to_medium(self):
         """Unknown severity level maps to 'medium'."""
-        severity_map = {"critical": "critical", "high": "high", "medium": "medium", "low": "low"}
+        severity_map = {
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+        }
         assert severity_map.get("unknown", "medium") == "medium"
         assert severity_map.get("extreme", "medium") == "medium"
 
 
 # ── cleanup_old_predictions ────────────────────────────────────────────────
 
+
 class TestCleanupOldPredictions:
     def test_cleanup_logic(self):
         """Cutoff date is computed correctly for retain_days."""
-        from datetime import datetime, timezone, timedelta
 
         retain_days = 90
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retain_days)
-        assert cutoff < datetime.now(timezone.utc)
-        diff = datetime.now(timezone.utc) - cutoff
+        cutoff = datetime.now(UTC) - timedelta(days=retain_days)
+        assert cutoff < datetime.now(UTC)
+        diff = datetime.now(UTC) - cutoff
         assert 89 < diff.days <= 91
 
 
 # ── Celery config ──────────────────────────────────────────────────────────
 
+
 class TestCeleryConfig:
     def test_celery_app_exists(self):
         from haiip.workers.tasks import celery_app
+
         assert celery_app is not None
         assert celery_app.conf.task_serializer == "json"
         assert celery_app.conf.enable_utc is True
@@ -327,6 +358,7 @@ class TestCeleryConfig:
 
     def test_beat_schedule_has_required_tasks(self):
         from haiip.workers.tasks import celery_app
+
         schedule = celery_app.conf.beat_schedule
         task_names = [v["task"] for v in schedule.values()]
         assert any("drift_check" in t for t in task_names)
@@ -334,12 +366,14 @@ class TestCeleryConfig:
 
     def test_task_routes_defined(self):
         from haiip.workers.tasks import celery_app
+
         routes = celery_app.conf.task_routes
         assert "haiip.workers.tasks.retrain_anomaly_model" in routes
         assert "haiip.workers.tasks.run_drift_check" in routes
 
     def test_tasks_registered(self):
         from haiip.workers import tasks
+
         assert callable(tasks.train_on_ai4i)
         assert callable(tasks.retrain_anomaly_model)
         assert callable(tasks.run_drift_check)

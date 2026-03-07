@@ -6,17 +6,17 @@ import streamlit as st
 
 from haiip.dashboard.components.auth import api_get, is_demo
 from haiip.dashboard.components.demo_data import demo_audit_log
-from haiip.dashboard.components.theme import badge, kpi_card, section_title
+from haiip.dashboard.components.theme import kpi_card, section_title
 
 ACTION_COLORS = {
-    "prediction.created":  ("primary", "🔮"),
-    "feedback.submitted":  ("normal",  "👤"),
-    "alert.acknowledged":  ("medium",  "🚨"),
-    "model.retrained":     ("warning", "🔄"),
-    "document.ingested":   ("normal",  "📄"),
-    "user.login":          ("low",     "🔑"),
-    "user.register":       ("low",     "👤"),
-    "alert.created":       ("high",    "⚠️"),
+    "prediction.created": ("primary", "🔮"),
+    "feedback.submitted": ("normal", "👤"),
+    "alert.acknowledged": ("medium", "🚨"),
+    "model.retrained": ("warning", "🔄"),
+    "document.ingested": ("normal", "📄"),
+    "user.login": ("low", "🔑"),
+    "user.register": ("low", "👤"),
+    "alert.created": ("high", "⚠️"),
 }
 
 
@@ -52,11 +52,18 @@ def render() -> None:
     with fc1:
         action_filter = st.selectbox(
             "Filter by action",
-            ["All", "prediction.created", "feedback.submitted", "alert.acknowledged",
-             "model.retrained", "document.ingested", "user.login"],
+            [
+                "All",
+                "prediction.created",
+                "feedback.submitted",
+                "alert.acknowledged",
+                "model.retrained",
+                "document.ingested",
+                "user.login",
+            ],
         )
     with fc2:
-        date_from = st.date_input("From date")
+        st.date_input("From date")
     with fc3:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("⟳ Refresh", use_container_width=True):
@@ -70,7 +77,7 @@ def render() -> None:
         logs = resp if isinstance(resp, list) else []
 
     if action_filter != "All":
-        logs = [l for l in logs if l.get("action") == action_filter]
+        logs = [log for log in logs if log.get("action") == action_filter]
 
     # ── Stats row ─────────────────────────────────────────────────────────────
     section_title("Compliance Statistics")
@@ -78,10 +85,18 @@ def render() -> None:
     with k1:
         kpi_card("Total Events", str(len(demo_audit_log()) if is_demo() else len(logs)))
     with k2:
-        pred_count = sum(1 for l in demo_audit_log() if l["action"] == "prediction.created") if is_demo() else 0
+        pred_count = (
+            sum(1 for log in demo_audit_log() if log["action"] == "prediction.created")
+            if is_demo()
+            else 0
+        )
         kpi_card("AI Decisions", str(pred_count))
     with k3:
-        fb_count = sum(1 for l in demo_audit_log() if l["action"] == "feedback.submitted") if is_demo() else 0
+        fb_count = (
+            sum(1 for log in demo_audit_log() if log["action"] == "feedback.submitted")
+            if is_demo()
+            else 0
+        )
         kpi_card("Human Reviews", str(fb_count))
     with k4:
         kpi_card("Compliance", "✅ EU AI Act")
@@ -116,7 +131,7 @@ def render() -> None:
                         Resource: <strong>{resource}</strong>
                         &nbsp;·&nbsp; User: <strong>{user[:16]}</strong>
                     </div>
-                    {f'<div style="font-size:0.75rem; color:#718096; margin-top:4px; font-family:monospace;">{details[:120]}</div>' if details else ''}
+                    {f'<div style="font-size:0.75rem; color:#718096; margin-top:4px; font-family:monospace;">{details[:120]}</div>' if details else ""}
                 </div>
             </div>
             """,
@@ -129,6 +144,7 @@ def render() -> None:
     with col_export:
         if st.button("📥 Export audit log (CSV)", use_container_width=True):
             import pandas as pd
+
             df = pd.DataFrame(logs)
             csv = df.to_csv(index=False)
             st.download_button(

@@ -19,24 +19,24 @@ Coverage (telemetry):
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from haiip.observability.cost_model import CostReport, PredictionCostModel
 from haiip.observability.telemetry import HAIIPTracer, get_tracer
 
-
 # ── PredictionCostModel ────────────────────────────────────────────────────────
+
 
 class TestPredictionCostModel:
     @pytest.fixture
     def model(self) -> PredictionCostModel:
         return PredictionCostModel(
-            gpu_hourly_rate_eur  = 0.50,
-            downtime_cost_eur    = 4000.0,
-            maintenance_cost_eur = 590.0,
-            safety_factor        = 1.5,
+            gpu_hourly_rate_eur=0.50,
+            downtime_cost_eur=4000.0,
+            maintenance_cost_eur=590.0,
+            safety_factor=1.5,
         )
 
     def test_compute_returns_cost_report(self, model: PredictionCostModel) -> None:
@@ -85,9 +85,16 @@ class TestPredictionCostModel:
     def test_to_dict_keys(self, model: PredictionCostModel) -> None:
         r = model.compute(inference_time_ms=50.0, failure_probability=0.7)
         dct = r.to_dict()
-        for key in ("report_id", "compute_cost_eur", "avoided_downtime_eur",
-                    "false_negative_cost_eur", "net_value_eur",
-                    "inference_time_ms", "failure_probability", "was_correct"):
+        for key in (
+            "report_id",
+            "compute_cost_eur",
+            "avoided_downtime_eur",
+            "false_negative_cost_eur",
+            "net_value_eur",
+            "inference_time_ms",
+            "failure_probability",
+            "was_correct",
+        ):
             assert key in dct
 
     def test_fleet_roi_empty(self, model: PredictionCostModel) -> None:
@@ -96,8 +103,7 @@ class TestPredictionCostModel:
 
     def test_fleet_roi_aggregation(self, model: PredictionCostModel) -> None:
         reports = [
-            model.compute(inference_time_ms=50.0, failure_probability=0.9)
-            for _ in range(10)
+            model.compute(inference_time_ms=50.0, failure_probability=0.9) for _ in range(10)
         ]
         roi = model.fleet_roi(reports)
         assert roi["predictions_total"] == 10
@@ -119,6 +125,7 @@ class TestPredictionCostModel:
 
 
 # ── HAIIPTracer ────────────────────────────────────────────────────────────────
+
 
 class TestHAIIPTracer:
     def test_span_noop_no_exception(self) -> None:
@@ -178,6 +185,7 @@ class TestHAIIPTracer:
 
     def test_get_tracer_returns_singleton(self) -> None:
         import haiip.observability.telemetry as tel
+
         tel._default_tracer = None  # reset
         t1 = get_tracer()
         t2 = get_tracer()

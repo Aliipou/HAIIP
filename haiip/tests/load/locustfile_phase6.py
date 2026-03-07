@@ -11,25 +11,23 @@ SLA targets (from Model Card):
 
 from __future__ import annotations
 
-import json
 import random
 
 from locust import HttpUser, between, events, task
 
-
 # ── Shared payload generators ──────────────────────────────────────────────────
 
 MACHINES = [f"M-{i:03d}" for i in range(1, 11)]
-TENANTS  = ["acme_fi", "nordic_se", "offshore_no"]
+TENANTS = ["acme_fi", "nordic_se", "offshore_no"]
 
 
 def sensor_payload() -> dict:
     return {
-        "anomaly_score":       round(random.uniform(0, 1), 3),
+        "anomaly_score": round(random.uniform(0, 1), 3),
         "failure_probability": round(random.uniform(0, 1), 3),
-        "rul_cycles":          random.randint(50, 5000),
-        "confidence":          round(random.uniform(0.5, 1.0), 3),
-        "machine_id":          random.choice(MACHINES),
+        "rul_cycles": random.randint(50, 5000),
+        "confidence": round(random.uniform(0.5, 1.0), 3),
+        "machine_id": random.choice(MACHINES),
     }
 
 
@@ -42,12 +40,13 @@ def agent_query_payload() -> dict:
         "What does the EU AI Act require for this risk level?",
     ]
     return {
-        "query":      random.choice(queries),
+        "query": random.choice(queries),
         "machine_id": random.choice(MACHINES),
     }
 
 
 # ── User classes ───────────────────────────────────────────────────────────────
+
 
 class OperatorUser(HttpUser):
     """Simulates a factory floor operator checking machine health."""
@@ -55,10 +54,13 @@ class OperatorUser(HttpUser):
     wait_time = between(1, 3)
 
     def on_start(self) -> None:
-        resp = self.client.post("/api/v1/auth/token", data={
-            "username": "operator@acme.fi",
-            "password": "TestPass123!",
-        })
+        resp = self.client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "operator@acme.fi",
+                "password": "TestPass123!",
+            },
+        )
         if resp.status_code == 200:
             self.token = resp.json().get("access_token", "")
         else:
@@ -102,10 +104,13 @@ class EngineerUser(HttpUser):
     wait_time = between(2, 5)
 
     def on_start(self) -> None:
-        resp = self.client.post("/api/v1/auth/token", data={
-            "username": "engineer@acme.fi",
-            "password": "TestPass123!",
-        })
+        resp = self.client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "engineer@acme.fi",
+                "password": "TestPass123!",
+            },
+        )
         self.token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
 
     @property
@@ -146,10 +151,13 @@ class AdminUser(HttpUser):
     wait_time = between(5, 15)
 
     def on_start(self) -> None:
-        resp = self.client.post("/api/v1/auth/token", data={
-            "username": "admin@acme.fi",
-            "password": "AdminPass456!",
-        })
+        resp = self.client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "admin@acme.fi",
+                "password": "AdminPass456!",
+            },
+        )
         self.token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
 
     @property
@@ -176,11 +184,11 @@ class AdminUser(HttpUser):
 # ── SLA enforcement ────────────────────────────────────────────────────────────
 
 SLA_MS = {
-    "/health":                    50,
-    "/api/v1/economic/decide":    100,
-    "/api/v1/agent/query":       3000,
-    "/api/v1/agent/diagnose":    5000,
-    "/api/v1/economic/batch":     500,
+    "/health": 50,
+    "/api/v1/economic/decide": 100,
+    "/api/v1/agent/query": 3000,
+    "/api/v1/agent/diagnose": 5000,
+    "/api/v1/economic/batch": 500,
 }
 
 
@@ -191,12 +199,10 @@ def on_request(
     response_time: float,
     response_length: int,
     response,  # noqa: ANN001
-    context,   # noqa: ANN001
+    context,  # noqa: ANN001
     exception,  # noqa: ANN001
     **kwargs: object,
 ) -> None:
     threshold = SLA_MS.get(name)
     if threshold and response_time > threshold:
-        print(
-            f"[SLA BREACH] {name}: {response_time:.0f}ms > {threshold}ms threshold"
-        )
+        print(f"[SLA BREACH] {name}: {response_time:.0f}ms > {threshold}ms threshold")

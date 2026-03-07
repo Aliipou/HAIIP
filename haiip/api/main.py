@@ -15,8 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from haiip.api.config import get_settings
+from haiip.api.correlation import CorrelationIDMiddleware
 from haiip.api.database import check_database_connection, create_all_tables
 from haiip.api.logging_config import configure_logging
+from haiip.api.middleware import SecurityMiddleware
 from haiip.api.models import (  # noqa: F401 — imported for side-effect (metadata)
     Alert,
     AuditLog,
@@ -26,10 +28,20 @@ from haiip.api.models import (  # noqa: F401 — imported for side-effect (metad
     Tenant,
     User,
 )
-from haiip.api.correlation import CorrelationIDMiddleware
-from haiip.api.middleware import SecurityMiddleware
-from haiip.api.routes import admin, agent, alerts, auth, documents, economic, feedback, metrics, predict
-from haiip.api.routes import gdpr, active_learning_routes, ml_ops
+from haiip.api.routes import (
+    active_learning_routes,
+    admin,
+    agent,
+    alerts,
+    auth,
+    documents,
+    economic,
+    feedback,
+    gdpr,
+    metrics,
+    ml_ops,
+    predict,
+)
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -38,6 +50,7 @@ _start_time = time.monotonic()
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
@@ -50,6 +63,7 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
 
 
 # ── App factory ───────────────────────────────────────────────────────────────
+
 
 def create_app() -> FastAPI:
     application = FastAPI(
@@ -107,9 +121,7 @@ def create_app() -> FastAPI:
         )
 
     @application.exception_handler(Exception)
-    async def generic_exception_handler(
-        request: Request, exc: Exception
-    ) -> JSONResponse:
+    async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.error(
             "unhandled_exception",
             path=request.url.path,
@@ -133,7 +145,9 @@ def create_app() -> FastAPI:
     application.include_router(agent.router, prefix=prefix, tags=["agent"])
     application.include_router(economic.router, prefix=prefix, tags=["economic"])
     application.include_router(gdpr.router, prefix=prefix, tags=["GDPR"])
-    application.include_router(active_learning_routes.router, prefix=prefix, tags=["Active Learning"])
+    application.include_router(
+        active_learning_routes.router, prefix=prefix, tags=["Active Learning"]
+    )
     application.include_router(ml_ops.router, prefix=prefix, tags=["ML Ops"])
 
     # ── API info (root) ────────────────────────────────────────────────────────

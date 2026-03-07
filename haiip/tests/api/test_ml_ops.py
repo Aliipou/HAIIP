@@ -10,15 +10,13 @@ Test categories:
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
 
 from haiip.api.main import create_app
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -33,17 +31,23 @@ async def auth_headers(app) -> dict[str, str]:
     """Get JWT token for engineer user."""
     async with AsyncClient(app=app, base_url="http://test") as client:
         # Register + login demo tenant/user
-        await client.post("/api/v1/auth/register-tenant", json={
-            "tenant_name": "test-mlops",
-            "tenant_slug": "test-mlops",
-            "admin_email": "mlops@test.ai",
-            "admin_password": "Test1234!",
-        })
-        resp = await client.post("/api/v1/auth/login", json={
-            "tenant_slug": "test-mlops",
-            "email": "mlops@test.ai",
-            "password": "Test1234!",
-        })
+        await client.post(
+            "/api/v1/auth/register-tenant",
+            json={
+                "tenant_name": "test-mlops",
+                "tenant_slug": "test-mlops",
+                "admin_email": "mlops@test.ai",
+                "admin_password": "Test1234!",
+            },
+        )
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "tenant_slug": "test-mlops",
+                "email": "mlops@test.ai",
+                "password": "Test1234!",
+            },
+        )
         token = resp.json().get("access_token", "")
     return {"Authorization": f"Bearer {token}"}
 
@@ -187,7 +191,11 @@ class TestBenchmarkEndpoint:
             async with AsyncClient(app=app, base_url="http://test") as client:
                 resp = await client.post(
                     "/api/v1/ml-ops/benchmark",
-                    json={"tenant_id": "default", "model_type": "anomaly", "n_runs": 50},
+                    json={
+                        "tenant_id": "default",
+                        "model_type": "anomaly",
+                        "n_runs": 50,
+                    },
                     headers=auth_headers,
                 )
         assert resp.status_code in (202, 503)
@@ -251,5 +259,10 @@ class TestPipelineStatusEndpoint:
             )
         if resp.status_code == 200:
             models = resp.json()["models"]
-            for key in ("sklearn_champion", "pytorch_autoencoder", "onnx_anomaly", "onnx_maintenance"):
+            for key in (
+                "sklearn_champion",
+                "pytorch_autoencoder",
+                "onnx_anomaly",
+                "onnx_maintenance",
+            ):
                 assert key in models

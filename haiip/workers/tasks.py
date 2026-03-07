@@ -14,10 +14,10 @@ Beat schedule: drift_check every 1h, cleanup every 24h.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from celery import Celery, shared_task
+from celery import Celery
 from celery.schedules import crontab
 
 from haiip.api.config import get_settings
@@ -75,6 +75,7 @@ celery_app.conf.update(
 
 # ── Task: initial training on AI4I ────────────────────────────────────────────
 
+
 @celery_app.task(bind=True, name="haiip.workers.tasks.train_on_ai4i", max_retries=2)
 def train_on_ai4i(
     self: Any,
@@ -86,7 +87,6 @@ def train_on_ai4i(
 
     Called once during platform onboarding per tenant.
     """
-    import os
     from pathlib import Path
 
     logger.info("Starting AI4I training for tenant=%s", tenant_id)
@@ -99,7 +99,10 @@ def train_on_ai4i(
         loader = AI4ILoader()
         normal_df = loader.get_normal_data()
 
-        self.update_state(state="PROGRESS", meta={"step": "fitting_model", "n_samples": len(normal_df)})
+        self.update_state(
+            state="PROGRESS",
+            meta={"step": "fitting_model", "n_samples": len(normal_df)},
+        )
 
         detector = AnomalyDetector(contamination=contamination, random_state=42)
         detector.fit_from_dataframe(normal_df)
@@ -112,7 +115,7 @@ def train_on_ai4i(
             "tenant_id": tenant_id,
             "n_samples": len(normal_df),
             "artifact_path": str(save_path),
-            "trained_at": datetime.now(timezone.utc).isoformat(),
+            "trained_at": datetime.now(UTC).isoformat(),
         }
         logger.info("AI4I training complete: %s", result)
         return result
@@ -123,6 +126,7 @@ def train_on_ai4i(
 
 
 # ── Task: anomaly model retraining ────────────────────────────────────────────
+
 
 @celery_app.task(bind=True, name="haiip.workers.tasks.retrain_anomaly_model", max_retries=2)
 def retrain_anomaly_model(
@@ -141,8 +145,6 @@ def retrain_anomaly_model(
     try:
         from pathlib import Path
 
-        import numpy as np
-
         from haiip.core.anomaly import AnomalyDetector
         from haiip.data.loaders.ai4i import AI4ILoader
 
@@ -153,10 +155,14 @@ def retrain_anomaly_model(
         # If feedback provided confirmed-normal samples, include them
         if feedback_records:
             confirmed_normal = [
-                r for r in feedback_records
+                r
+                for r in feedback_records
                 if r.get("was_correct") and r.get("corrected_label") == "no_failure"
             ]
-            logger.info("Incorporating %d confirmed-normal feedback records", len(confirmed_normal))
+            logger.info(
+                "Incorporating %d confirmed-normal feedback records",
+                len(confirmed_normal),
+            )
 
         self.update_state(state="PROGRESS", meta={"step": "fitting"})
 
@@ -171,7 +177,7 @@ def retrain_anomaly_model(
             "tenant_id": tenant_id,
             "n_samples": len(X_base),
             "artifact_path": str(save_path),
-            "retrained_at": datetime.now(timezone.utc).isoformat(),
+            "retrained_at": datetime.now(UTC).isoformat(),
         }
     except Exception as exc:
         logger.error("Retraining failed for tenant=%s: %s", tenant_id, exc)
@@ -179,6 +185,7 @@ def retrain_anomaly_model(
 
 
 # ── Task: drift monitoring ────────────────────────────────────────────────────
+
 
 @celery_app.task(name="haiip.workers.tasks.run_drift_check")
 def run_drift_check(tenant_ids: list[str] | None = None) -> dict[str, Any]:
@@ -220,7 +227,10 @@ def run_drift_check(tenant_ids: list[str] | None = None) -> dict[str, Any]:
             }
 
             if summary["drift_detected"] and summary["severity"] == "drift":
-                logger.warning("Critical drift detected for tenant=%s — triggering retrain", tenant_id)
+                logger.warning(
+                    "Critical drift detected for tenant=%s — triggering retrain",
+                    tenant_id,
+                )
                 retrain_anomaly_model.delay(tenant_id=tenant_id)
 
         except Exception as exc:
@@ -231,6 +241,7 @@ def run_drift_check(tenant_ids: list[str] | None = None) -> dict[str, Any]:
 
 
 # ── Task: alert generation ────────────────────────────────────────────────────
+
 
 @celery_app.task(name="haiip.workers.tasks.generate_alert")
 def generate_alert(
@@ -248,14 +259,23 @@ def generate_alert(
     import asyncio
 
     async def _create() -> dict[str, Any]:
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.ext.asyncio import (
+            AsyncSession,
+            async_sessionmaker,
+            create_async_engine,
+        )
 
         from haiip.api.models import Alert
 
         engine = create_async_engine(settings.database_url)
         session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-        severity_map = {"critical": "critical", "high": "high", "medium": "medium", "low": "low"}
+        severity_map = {
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+        }
         db_severity = severity_map.get(severity, "medium")
 
         alert = Alert(
@@ -306,7 +326,11 @@ def auto_retrain_pipeline(
         import numpy as np
 
         from haiip.core.anomaly import AnomalyDetector
-        from haiip.core.auto_retrain import AutoRetrainPipeline, RetrainTrigger, TriggerReason
+        from haiip.core.auto_retrain import (
+            AutoRetrainPipeline,
+            RetrainTrigger,
+            TriggerReason,
+        )
         from haiip.core.drift import DriftDetector
         from haiip.data.loaders.ai4i import AI4ILoader
 
@@ -360,7 +384,7 @@ def auto_retrain_pipeline(
             return {
                 "status": "no_retrain_needed",
                 "tenant_id": tenant_id,
-                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "checked_at": datetime.now(UTC).isoformat(),
             }
 
         # Save promoted champion
@@ -423,6 +447,7 @@ def export_onnx_model(
             else:
                 # Train minimal model for export demonstration
                 from haiip.data.loaders.ai4i import AI4ILoader
+
                 loader = AI4ILoader()
                 df = loader.get_normal_data()
                 X = df[loader.feature_columns].values
@@ -453,7 +478,7 @@ def export_onnx_model(
             "onnx_path": str(out_path),
             "size_kb": size_kb,
             "opset": opset,
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
         }
         logger.info("ONNX export complete: %s", result)
         return result
@@ -481,9 +506,11 @@ def benchmark_onnx_model(
     try:
         from pathlib import Path
 
-        import numpy as np
-
-        from haiip.core.onnx_runtime import LATENCY_SLA_MS, ONNXAnomalyDetector, ONNXMaintenancePredictor
+        from haiip.core.onnx_runtime import (
+            LATENCY_SLA_MS,
+            ONNXAnomalyDetector,
+            ONNXMaintenancePredictor,
+        )
 
         artifact_dir = Path(settings.model_artifacts_path) / tenant_id / "onnx"
 
@@ -504,7 +531,10 @@ def benchmark_onnx_model(
         if not sla_pass:
             logger.warning(
                 "SLA breach: p99=%.1fms > %.0fms for tenant=%s model=%s",
-                stats["p99_ms"], LATENCY_SLA_MS, tenant_id, model_type,
+                stats["p99_ms"],
+                LATENCY_SLA_MS,
+                tenant_id,
+                model_type,
             )
 
         return {
@@ -514,7 +544,7 @@ def benchmark_onnx_model(
             "sla_pass": sla_pass,
             "sla_limit_ms": LATENCY_SLA_MS,
             **stats,
-            "benchmarked_at": datetime.now(timezone.utc).isoformat(),
+            "benchmarked_at": datetime.now(UTC).isoformat(),
         }
 
     except Exception as exc:
@@ -524,6 +554,7 @@ def benchmark_onnx_model(
 
 # ── Task: cleanup ─────────────────────────────────────────────────────────────
 
+
 @celery_app.task(name="haiip.workers.tasks.cleanup_old_predictions")
 def cleanup_old_predictions(retain_days: int = 90) -> dict[str, Any]:
     """Delete predictions older than retain_days. Runs nightly at 2am."""
@@ -531,18 +562,20 @@ def cleanup_old_predictions(retain_days: int = 90) -> dict[str, Any]:
 
     async def _cleanup() -> dict[str, Any]:
         from sqlalchemy import delete
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.ext.asyncio import (
+            AsyncSession,
+            async_sessionmaker,
+            create_async_engine,
+        )
 
         from haiip.api.models import Prediction
 
         engine = create_async_engine(settings.database_url)
         session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retain_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retain_days)
         async with session_factory() as session:
-            result = await session.execute(
-                delete(Prediction).where(Prediction.created_at < cutoff)
-            )
+            result = await session.execute(delete(Prediction).where(Prediction.created_at < cutoff))
             await session.commit()
             deleted = result.rowcount
 

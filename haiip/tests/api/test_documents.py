@@ -54,7 +54,7 @@ async def test_ingest_document_success(client: AsyncClient, admin_headers):
         json={
             "title": "CNC Maintenance Manual",
             "content": "HDF failure occurs when heat dissipation is insufficient. "
-                       "Check cooling system regularly to prevent thermal overload.",
+            "Check cooling system regularly to prevent thermal overload.",
             "source": "manual",
         },
         headers=admin_headers,

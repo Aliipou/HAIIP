@@ -38,11 +38,14 @@ def render() -> None:
     with k2:
         kpi_card("Feedback Given", str(total_fb if not is_demo() else 47))
     with k3:
-        kpi_card("Model Accuracy", f"{(accuracy or 0.943)*100:.1f}%")
+        kpi_card("Model Accuracy", f"{(accuracy or 0.943) * 100:.1f}%")
     with k4:
         needs_retrain = accuracy < 0.80 if total_fb > 50 else False
-        kpi_card("Retraining Needed", "YES ⚠️" if needs_retrain else "No ✓",
-                 delta_dir="up" if needs_retrain else "neu")
+        kpi_card(
+            "Retraining Needed",
+            "YES ⚠️" if needs_retrain else "No ✓",
+            delta_dir="up" if needs_retrain else "neu",
+        )
 
     if not predictions:
         st.success("✅ All predictions have been reviewed. No feedback pending.")
@@ -81,7 +84,7 @@ def _feedback_card(pred: dict) -> None:
                     <div style="font-size:0.8rem; color:#718096;">{created}</div>
                 </div>
                 <div style="display:flex; gap:2rem; margin-top:0.75rem; font-size:0.82rem; color:#A0AEC0;">
-                    <span>Confidence: <strong style="color:#E2E8F0;">{conf*100:.1f}%</strong></span>
+                    <span>Confidence: <strong style="color:#E2E8F0;">{conf * 100:.1f}%</strong></span>
                     <span>Anomaly score: <strong style="color:#E2E8F0;">{score:.3f}</strong></span>
                     <span>ID: <code style="font-size:0.72rem;">{pred_id[:12]}…</code></span>
                 </div>
@@ -113,8 +116,12 @@ def _feedback_card(pred: dict) -> None:
                     key=f"note_{pred_id}",
                 )
             if st.button("Submit correction", key=f"submit_{pred_id}"):
-                _submit_feedback(pred_id, was_correct=False,
-                                 corrected_label=corrected, notes=note or None)
+                _submit_feedback(
+                    pred_id,
+                    was_correct=False,
+                    corrected_label=corrected,
+                    notes=note or None,
+                )
                 st.session_state.pop(f"show_correct_{pred_id}", None)
 
         st.markdown("---")
@@ -161,6 +168,7 @@ def _show_feedback_history() -> None:
             return
 
         import pandas as pd
+
         df = pd.DataFrame(items)
         display_cols = ["prediction_id", "was_correct", "corrected_label", "created_at"]
         df_show = df[[c for c in display_cols if c in df.columns]]

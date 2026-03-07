@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import pytest
 from httpx import AsyncClient
 
@@ -116,8 +118,9 @@ class TestGDPRPIIScan:
 class TestGDPRConsent:
     @pytest.mark.asyncio
     async def test_valid_consent(self, client: AsyncClient, admin_headers: dict):
-        from datetime import datetime, timezone, timedelta
-        recent = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        from datetime import datetime, timedelta
+
+        recent = (datetime.now(UTC) - timedelta(days=30)).isoformat()
         resp = await client.post(
             "/api/v1/gdpr/consent/validate",
             json={
@@ -137,8 +140,9 @@ class TestGDPRConsent:
 
     @pytest.mark.asyncio
     async def test_expired_consent(self, client: AsyncClient, admin_headers: dict):
-        from datetime import datetime, timezone, timedelta
-        old = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat()
+        from datetime import datetime, timedelta
+
+        old = (datetime.now(UTC) - timedelta(days=400)).isoformat()
         resp = await client.post(
             "/api/v1/gdpr/consent/validate",
             json={

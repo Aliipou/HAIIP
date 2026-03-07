@@ -16,9 +16,7 @@ from __future__ import annotations
 import math
 import threading
 import uuid
-from typing import Any
 
-import numpy as np
 import pytest
 
 from haiip.core.economic_ai import CostProfile, EconomicDecisionEngine
@@ -26,8 +24,8 @@ from haiip.core.federated import FederatedLearner, FederatedNode, NodeProfile, S
 from haiip.core.human_oversight import HumanOversightEngine, OversightEvent
 from haiip.observability.cost_model import PredictionCostModel
 
-
 # ── EconomicDecisionEngine crash tests ────────────────────────────────────────
+
 
 class TestEconomicCrash:
     @pytest.fixture
@@ -79,9 +77,7 @@ class TestEconomicCrash:
 
     def test_confidence_nan(self, engine: EconomicDecisionEngine) -> None:
         try:
-            d = engine.decide(
-                anomaly_score=0.5, failure_probability=0.5, confidence=float("nan")
-            )
+            d = engine.decide(anomaly_score=0.5, failure_probability=0.5, confidence=float("nan"))
             assert d.confidence is not None
         except (ValueError, TypeError):
             pass
@@ -110,6 +106,7 @@ class TestEconomicCrash:
 
 # ── FederatedLearner crash tests ───────────────────────────────────────────────
 
+
 class TestFederatedCrash:
     def test_zero_rounds(self) -> None:
         """Zero rounds should either return empty or raise cleanly."""
@@ -121,9 +118,7 @@ class TestFederatedCrash:
             pass
 
     def test_single_node(self) -> None:
-        profiles = [
-            NodeProfile(SMENode.SME_FI, 200, 0.1, 0.2, country="FI", industry="test")
-        ]
+        profiles = [NodeProfile(SMENode.SME_FI, 200, 0.1, 0.2, country="FI", industry="test")]
         learner = FederatedLearner(profiles=profiles, random_state=0)
         result = learner.run(n_rounds=2, local_epochs=1)
         assert result.total_rounds >= 1
@@ -158,6 +153,7 @@ class TestFederatedCrash:
 
 # ── HumanOversightEngine crash tests ──────────────────────────────────────────
 
+
 class TestHumanOversightCrash:
     @pytest.fixture
     def engine(self) -> HumanOversightEngine:
@@ -168,53 +164,75 @@ class TestHumanOversightCrash:
             engine.compute_metrics()
 
     def test_single_event_does_not_crash(self, engine: HumanOversightEngine) -> None:
-        engine.record(OversightEvent.create(
-            decision_id="d1", ai_label="normal", ai_confidence=0.8,
-            true_label="normal", human_reviewed=False,
-        ))
+        engine.record(
+            OversightEvent.create(
+                decision_id="d1",
+                ai_label="normal",
+                ai_confidence=0.8,
+                true_label="normal",
+                human_reviewed=False,
+            )
+        )
         m = engine.compute_metrics()
         assert 0.0 <= m.tcs <= 1.0
 
     def test_all_wrong_ai(self, engine: HumanOversightEngine) -> None:
         for _ in range(20):
-            engine.record(OversightEvent.create(
-                decision_id=str(uuid.uuid4()),
-                ai_label="failure", ai_confidence=0.9,
-                true_label="normal", human_reviewed=False,
-            ))
+            engine.record(
+                OversightEvent.create(
+                    decision_id=str(uuid.uuid4()),
+                    ai_label="failure",
+                    ai_confidence=0.9,
+                    true_label="normal",
+                    human_reviewed=False,
+                )
+            )
         m = engine.compute_metrics()
         assert m.ai_accuracy == pytest.approx(0.0)
 
     def test_all_overridden(self, engine: HumanOversightEngine) -> None:
         for _ in range(10):
-            engine.record(OversightEvent.create(
-                decision_id=str(uuid.uuid4()),
-                ai_label="failure", ai_confidence=0.5,
-                true_label="normal", human_reviewed=True,
-                human_overrode=True, human_label="normal",
-            ))
+            engine.record(
+                OversightEvent.create(
+                    decision_id=str(uuid.uuid4()),
+                    ai_label="failure",
+                    ai_confidence=0.5,
+                    true_label="normal",
+                    human_reviewed=True,
+                    human_overrode=True,
+                    human_label="normal",
+                )
+            )
         m = engine.compute_metrics()
         assert m.n_overridden == 10
         assert m.hog > 0
 
     def test_rolling_hir_small_window(self, engine: HumanOversightEngine) -> None:
         for i in range(3):
-            engine.record(OversightEvent.create(
-                decision_id=str(uuid.uuid4()),
-                ai_label="normal", ai_confidence=0.8,
-                true_label="normal", human_reviewed=(i % 2 == 0),
-            ))
+            engine.record(
+                OversightEvent.create(
+                    decision_id=str(uuid.uuid4()),
+                    ai_label="normal",
+                    ai_confidence=0.8,
+                    true_label="normal",
+                    human_reviewed=(i % 2 == 0),
+                )
+            )
         result = engine.rolling_hir(window=5)
         assert len(result) >= 0  # may be empty for window > events
 
     def test_concurrent_recording(self, engine: HumanOversightEngine) -> None:
         def record_events() -> None:
             for _ in range(10):
-                engine.record(OversightEvent.create(
-                    decision_id=str(uuid.uuid4()),
-                    ai_label="normal", ai_confidence=0.8,
-                    true_label="normal", human_reviewed=False,
-                ))
+                engine.record(
+                    OversightEvent.create(
+                        decision_id=str(uuid.uuid4()),
+                        ai_label="normal",
+                        ai_confidence=0.8,
+                        true_label="normal",
+                        human_reviewed=False,
+                    )
+                )
 
         threads = [threading.Thread(target=record_events) for _ in range(5)]
         for t in threads:
@@ -225,6 +243,7 @@ class TestHumanOversightCrash:
 
 
 # ── PredictionCostModel crash tests ───────────────────────────────────────────
+
 
 class TestCostModelCrash:
     @pytest.fixture
@@ -254,6 +273,7 @@ class TestCostModelCrash:
 
     def test_to_dict_json_serialisable(self, model: PredictionCostModel) -> None:
         import json
+
         r = model.compute(50.0, 0.7, metadata={"machine": "M001"})
         dct = r.to_dict()
         # Should not raise

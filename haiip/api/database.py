@@ -25,11 +25,7 @@ engine = create_async_engine(
     echo=settings.app_debug,
     pool_pre_ping=True,
     # SQLite-specific: disable check_same_thread
-    connect_args=(
-        {"check_same_thread": False}
-        if "sqlite" in settings.database_url
-        else {}
-    ),
+    connect_args=({"check_same_thread": False} if "sqlite" in settings.database_url else {}),
 )
 
 

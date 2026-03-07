@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from sqlalchemy import func, select
 
 from haiip.api.database import check_database_connection
-from haiip.api.deps import CurrentUser, DB
+from haiip.api.deps import DB, CurrentUser
 from haiip.api.models import Alert, Prediction
 from haiip.api.schemas import MachineMetrics, SystemHealthResponse
 
@@ -41,9 +41,9 @@ async def machine_metrics(
         select(
             Prediction.machine_id,
             func.count(Prediction.id).label("total"),
-            func.sum(
-                func.cast(Prediction.prediction_label == "anomaly", func.Integer)
-            ).label("anomalies"),
+            func.sum(func.cast(Prediction.prediction_label == "anomaly", func.Integer)).label(
+                "anomalies"
+            ),
             func.avg(Prediction.confidence).label("avg_confidence"),
             func.max(Prediction.created_at).label("last_prediction_at"),
         )

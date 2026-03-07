@@ -25,7 +25,7 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -38,15 +38,15 @@ from haiip.core.economic_ai import CostProfile, EconomicDecisionEngine
 
 RANGES: dict[str, tuple[float, float]] = {
     # EUR/hr: €50 = small 2-person workshop; €50k = large automotive stamping line
-    "downtime_cost_eur_per_hour":      (50.0,    50_000.0),
+    "downtime_cost_eur_per_hour": (50.0, 50_000.0),
     # EUR/hr: Finnish metalworking collective agreement range (junior to senior specialist)
-    "maintenance_labour_eur_per_hour": (30.0,    200.0),
+    "maintenance_labour_eur_per_hour": (30.0, 200.0),
     # EUR: 0.5h labour minimum; 8h maximum (full-day wasted call)
-    "false_positive_cost_eur":         (15.0,    1_600.0),
+    "false_positive_cost_eur": (15.0, 1_600.0),
     # hours: 0.5h (quick sensor swap) to 72h (complex overhaul with parts lead time)
-    "mttr_hours":                      (0.5,     72.0),
+    "mttr_hours": (0.5, 72.0),
     # EUR/hr: €100 = small machine shop; €100k = semiconductor fab line
-    "production_value_eur_per_hour":   (100.0,   100_000.0),
+    "production_value_eur_per_hour": (100.0, 100_000.0),
 }
 
 
@@ -108,9 +108,7 @@ class SiteEconomicProfile:
         for field_name, (lo, hi) in RANGES.items():
             val = getattr(self, field_name)
             if not (lo <= val <= hi):
-                violations.append(
-                    f"{field_name} = {val:.2f} is outside valid range [{lo}, {hi}]"
-                )
+                violations.append(f"{field_name} = {val:.2f} is outside valid range [{lo}, {hi}]")
         return violations
 
     def calibration_interview(self) -> dict[str, Any]:
@@ -196,7 +194,7 @@ class SiteEconomicProfile:
         }
 
     @classmethod
-    def from_interview_responses(cls, responses: dict[str, Any]) -> "SiteEconomicProfile":
+    def from_interview_responses(cls, responses: dict[str, Any]) -> SiteEconomicProfile:
         """
         Build a SiteEconomicProfile from interview response dict.
 
@@ -232,8 +230,8 @@ class SiteEconomicProfile:
                  baseline_decision, low_decision, high_decision,
                  decision_changed_low, decision_changed_high
         """
-        baseline_profile  = self._to_cost_profile()
-        baseline_engine   = EconomicDecisionEngine(cost_profile=baseline_profile)
+        baseline_profile = self._to_cost_profile()
+        baseline_engine = EconomicDecisionEngine(cost_profile=baseline_profile)
         baseline_decision = baseline_engine.decide(
             anomaly_score=anomaly_score,
             failure_probability=failure_probability,
@@ -241,29 +239,35 @@ class SiteEconomicProfile:
 
         rows: list[dict[str, Any]] = []
         for field_name in RANGES:
-            base_val  = getattr(self, field_name)
-            low_val   = base_val * (1.0 - variation)
-            high_val  = base_val * (1.0 + variation)
+            base_val = getattr(self, field_name)
+            low_val = base_val * (1.0 - variation)
+            high_val = base_val * (1.0 + variation)
 
-            low_decision = EconomicDecisionEngine(
-                cost_profile=self._to_cost_profile(**{field_name: low_val})
-            ).decide(anomaly_score=anomaly_score, failure_probability=failure_probability).action.value
+            low_decision = (
+                EconomicDecisionEngine(cost_profile=self._to_cost_profile(**{field_name: low_val}))
+                .decide(anomaly_score=anomaly_score, failure_probability=failure_probability)
+                .action.value
+            )
 
-            high_decision = EconomicDecisionEngine(
-                cost_profile=self._to_cost_profile(**{field_name: high_val})
-            ).decide(anomaly_score=anomaly_score, failure_probability=failure_probability).action.value
+            high_decision = (
+                EconomicDecisionEngine(cost_profile=self._to_cost_profile(**{field_name: high_val}))
+                .decide(anomaly_score=anomaly_score, failure_probability=failure_probability)
+                .action.value
+            )
 
-            rows.append({
-                "parameter":             field_name,
-                "baseline_value":        base_val,
-                "low_value":             round(low_val, 2),
-                "high_value":            round(high_val, 2),
-                "baseline_decision":     baseline_decision,
-                "low_decision":          low_decision,
-                "high_decision":         high_decision,
-                "decision_changed_low":  low_decision  != baseline_decision,
-                "decision_changed_high": high_decision != baseline_decision,
-            })
+            rows.append(
+                {
+                    "parameter": field_name,
+                    "baseline_value": base_val,
+                    "low_value": round(low_val, 2),
+                    "high_value": round(high_val, 2),
+                    "baseline_decision": baseline_decision,
+                    "low_decision": low_decision,
+                    "high_decision": high_decision,
+                    "decision_changed_low": low_decision != baseline_decision,
+                    "decision_changed_high": high_decision != baseline_decision,
+                }
+            )
 
         return pd.DataFrame(rows)
 

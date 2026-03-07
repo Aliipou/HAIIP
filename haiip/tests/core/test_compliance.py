@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -22,8 +22,8 @@ from haiip.core.compliance import (
     TransparencyReport,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def engine() -> ComplianceEngine:
@@ -42,6 +42,7 @@ def engine_low_threshold() -> ComplianceEngine:
 
 
 # ── Risk classification ───────────────────────────────────────────────────────
+
 
 class TestRiskClassification:
     def test_classify_risk_returns_assessment(self, engine: ComplianceEngine):
@@ -106,6 +107,7 @@ class TestRiskClassification:
 
 
 # ── Decision logging ──────────────────────────────────────────────────────────
+
 
 class TestDecisionLogging:
     def test_log_decision_returns_event(self, engine: ComplianceEngine):
@@ -203,6 +205,7 @@ class TestDecisionLogging:
 
 # ── Human override logging ────────────────────────────────────────────────────
 
+
 class TestHumanOverrideLogging:
     def test_log_human_override_returns_event(self, engine: ComplianceEngine):
         event = engine.log_human_override(
@@ -236,7 +239,11 @@ class TestHumanOverrideLogging:
 
     def test_override_with_reason(self, engine: ComplianceEngine):
         event = engine.log_human_override(
-            "pred-106", "no_failure", "OSF", "usr-007", reason="Vibration spike confirmed"
+            "pred-106",
+            "no_failure",
+            "OSF",
+            "usr-007",
+            reason="Vibration spike confirmed",
         )
         assert event.explanation_available is True
         assert "Vibration spike" in event.metadata["reason"]
@@ -248,6 +255,7 @@ class TestHumanOverrideLogging:
 
 
 # ── Incident detection ────────────────────────────────────────────────────────
+
 
 class TestIncidentDetection:
     def test_no_incidents_with_no_events(self, engine: ComplianceEngine):
@@ -316,6 +324,7 @@ class TestIncidentDetection:
 
 
 # ── Transparency report ───────────────────────────────────────────────────────
+
 
 class TestTransparencyReport:
     def test_empty_report_generated(self, engine: ComplianceEngine):
@@ -392,19 +401,27 @@ class TestTransparencyReport:
 
     def test_report_period_defaults_to_current_month(self, engine: ComplianceEngine):
         report = engine.generate_transparency_report()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start = datetime.fromisoformat(report.report_period_start)
         assert start.year == now.year
         assert start.month == now.month
 
     def test_model_types_extracted_from_metadata(self, engine: ComplianceEngine):
-        engine.log_decision("p1", [1.0], "no_failure", 0.9, metadata={"model_type": "isolation_forest"})
-        engine.log_decision("p2", [1.0], "anomaly", 0.8, metadata={"model_type": "gradient_boosting"})
+        engine.log_decision(
+            "p1", [1.0], "no_failure", 0.9, metadata={"model_type": "isolation_forest"}
+        )
+        engine.log_decision(
+            "p2", [1.0], "anomaly", 0.8, metadata={"model_type": "gradient_boosting"}
+        )
         report = engine.generate_transparency_report()
-        assert "isolation_forest" in report.model_types_used or "gradient_boosting" in report.model_types_used
+        assert (
+            "isolation_forest" in report.model_types_used
+            or "gradient_boosting" in report.model_types_used
+        )
 
 
 # ── GDPR helpers ──────────────────────────────────────────────────────────────
+
 
 class TestGDPRHelpers:
     def test_hash_personal_data_returns_hex(self):
@@ -446,6 +463,7 @@ class TestGDPRHelpers:
 
 
 # ── Engine properties ─────────────────────────────────────────────────────────
+
 
 class TestEngineProperties:
     def test_event_count_starts_zero(self, engine: ComplianceEngine):

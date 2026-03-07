@@ -29,13 +29,15 @@ logger = logging.getLogger(__name__)
 
 # ── SIL definitions (IEC 61508 Table 2) ──────────────────────────────────────
 
+
 class SILLevel(IntEnum):
     """Safety Integrity Level — higher = stricter."""
-    SIL_0 = 0   # non-safety-critical
-    SIL_1 = 1   # PFD_avg: 10e-2 to 10e-1
-    SIL_2 = 2   # PFD_avg: 10e-3 to 10e-2  ← HAIIP target
-    SIL_3 = 3   # PFD_avg: 10e-4 to 10e-3
-    SIL_4 = 4   # PFD_avg: 10e-5 to 10e-4
+
+    SIL_0 = 0  # non-safety-critical
+    SIL_1 = 1  # PFD_avg: 10e-2 to 10e-1
+    SIL_2 = 2  # PFD_avg: 10e-3 to 10e-2  ← HAIIP target
+    SIL_3 = 3  # PFD_avg: 10e-4 to 10e-3
+    SIL_4 = 4  # PFD_avg: 10e-5 to 10e-4
 
 
 # SIL_2 PFD bounds per IEC 61508 Table 2
@@ -52,12 +54,13 @@ AI_IS_ADVISORY = True
 @dataclass
 class FMEAEntry:
     """Single row of a Failure Mode and Effects Analysis table."""
+
     component: str
     failure_mode: str
     effect: str
-    severity: int        # 1–10
-    occurrence: int      # 1–10
-    detectability: int   # 1–10 (10 = hard to detect)
+    severity: int  # 1–10
+    occurrence: int  # 1–10
+    detectability: int  # 1–10 (10 = hard to detect)
 
     @property
     def rpn(self) -> int:
@@ -79,9 +82,10 @@ class FMEAEntry:
 @dataclass
 class SafetyDecision:
     """Result of a safety check on an AI prediction."""
+
     original_label: str
     original_confidence: float
-    safe_label: str                 # may differ if overridden
+    safe_label: str  # may differ if overridden
     safe_confidence: float
     escalate_to_human: bool
     sil_level: SILLevel
@@ -93,8 +97,9 @@ class SafetyDecision:
 @dataclass
 class DiagnosticCoverage:
     """IEC 61508 Diagnostic Coverage computation."""
-    total_failure_rate: float        # λ_total (per hour)
-    detected_failure_rate: float     # λ_detected (per hour)
+
+    total_failure_rate: float  # λ_total (per hour)
+    detected_failure_rate: float  # λ_detected (per hour)
 
     @property
     def dc(self) -> float:
@@ -163,16 +168,12 @@ class SafetyLayer:
         # Rule 1: Low confidence → escalate
         if confidence < self.confidence_threshold:
             escalate = True
-            reasons.append(
-                f"confidence={confidence:.3f} < threshold={self.confidence_threshold}"
-            )
+            reasons.append(f"confidence={confidence:.3f} < threshold={self.confidence_threshold}")
 
         # Rule 2: High anomaly score → escalate regardless of label
         if anomaly_score > self.anomaly_score_limit:
             escalate = True
-            reasons.append(
-                f"anomaly_score={anomaly_score:.3f} > limit={self.anomaly_score_limit}"
-            )
+            reasons.append(f"anomaly_score={anomaly_score:.3f} > limit={self.anomaly_score_limit}")
 
         # Rule 3: REPAIR_NOW at SIL-2 always requires human confirmation
         if economic_action == "REPAIR_NOW" and self.require_human_for_repair:
@@ -183,9 +184,7 @@ class SafetyLayer:
         safe_label = label
         if label == "normal" and anomaly_score > 0.60:
             safe_label = "anomaly"
-            reasons.append(
-                f"fail-safe override: score={anomaly_score:.3f} despite label=normal"
-            )
+            reasons.append(f"fail-safe override: score={anomaly_score:.3f} despite label=normal")
 
         reason = "; ".join(reasons) if reasons else "all safety checks passed"
 
@@ -202,7 +201,9 @@ class SafetyLayer:
         if escalate:
             logger.warning(
                 "SafetyLayer escalation: label=%s → safe=%s | %s",
-                label, safe_label, reason,
+                label,
+                safe_label,
+                reason,
             )
         else:
             logger.debug("SafetyLayer OK: label=%s confidence=%.3f", label, confidence)
@@ -293,36 +294,48 @@ HAIIP_FMEA: list[FMEAEntry] = [
         component="AnomalyDetector",
         failure_mode="False negative (missed anomaly)",
         effect="Undetected machine failure → unplanned downtime",
-        severity=8, occurrence=3, detectability=4,
+        severity=8,
+        occurrence=3,
+        detectability=4,
     ),
     FMEAEntry(
         component="AnomalyDetector",
         failure_mode="False positive (false alarm)",
         effect="Unnecessary maintenance stop → lost production",
-        severity=4, occurrence=4, detectability=2,
+        severity=4,
+        occurrence=4,
+        detectability=2,
     ),
     FMEAEntry(
         component="EconomicAI",
         failure_mode="REPAIR_NOW issued incorrectly",
         effect="Machine stopped unnecessarily — production loss",
-        severity=5, occurrence=2, detectability=3,
+        severity=5,
+        occurrence=2,
+        detectability=3,
     ),
     FMEAEntry(
         component="SensorPipeline",
         failure_mode="Sensor dropout / stale data",
         effect="Model operates on stale inputs → degraded accuracy",
-        severity=7, occurrence=3, detectability=3,
+        severity=7,
+        occurrence=3,
+        detectability=3,
     ),
     FMEAEntry(
         component="RAGEngine",
         failure_mode="Hallucinated maintenance instruction",
         effect="Wrong repair procedure followed by technician",
-        severity=9, occurrence=2, detectability=6,
+        severity=9,
+        occurrence=2,
+        detectability=6,
     ),
     FMEAEntry(
         component="DriftDetector",
         failure_mode="Missed distribution shift",
         effect="Model predictions unreliable — undetected degradation",
-        severity=8, occurrence=2, detectability=5,
+        severity=8,
+        occurrence=2,
+        detectability=5,
     ),
 ]

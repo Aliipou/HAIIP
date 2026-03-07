@@ -1,21 +1,21 @@
 """Auth routes — login, refresh, register, logout."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from haiip.api.auth import (
+    TokenError,
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
     hash_password,
     verify_password,
-    TokenError,
 )
 from haiip.api.config import get_settings
-from haiip.api.deps import AdminUser, CurrentUser, DB
+from haiip.api.deps import DB, AdminUser, CurrentUser
 from haiip.api.models import Tenant, User
 from haiip.api.schemas import (
     LoginRequest,
@@ -60,7 +60,7 @@ async def login(body: LoginRequest, db: DB) -> TokenResponse:
         )
 
     # Update last_login
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
     await db.flush()
 
     logger.info("auth.login", user_id=user.id, tenant_id=tenant.id)
@@ -68,7 +68,7 @@ async def login(body: LoginRequest, db: DB) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(user.id, tenant.id, user.role),
         refresh_token=create_refresh_token(user.id, tenant.id),
-        token_type="bearer",
+        token_type="bearer",  # noqa: S106
         expires_in=settings.access_token_expire_minutes * 60,
     )
 
@@ -78,11 +78,11 @@ async def refresh_token(body: RefreshRequest, db: DB) -> TokenResponse:
     """Exchange a refresh token for a new access token."""
     try:
         payload = decode_refresh_token(body.refresh_token)
-    except TokenError:
+    except TokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
-        )
+        ) from exc
 
     user_result = await db.execute(
         select(User).where(
@@ -100,7 +100,7 @@ async def refresh_token(body: RefreshRequest, db: DB) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(user.id, user.tenant_id, user.role),
         refresh_token=create_refresh_token(user.id, user.tenant_id),
-        token_type="bearer",
+        token_type="bearer",  # noqa: S106
         expires_in=settings.access_token_expire_minutes * 60,
     )
 

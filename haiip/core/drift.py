@@ -107,7 +107,7 @@ class DriftDetector:
         self._reference: np.ndarray | None = None
         self._ph_detectors: dict[str, PageHinkleyDetector] = {}
 
-    def fit_reference(self, X: np.ndarray, feature_names: list[str] | None = None) -> "DriftDetector":
+    def fit_reference(self, X: np.ndarray, feature_names: list[str] | None = None) -> DriftDetector:
         """Store reference distribution for comparison.
 
         Args:
@@ -121,9 +121,7 @@ class DriftDetector:
             self.feature_names = [f"feature_{i}" for i in range(self._reference.shape[1])]
 
         # Initialise per-feature Page-Hinkley detectors
-        self._ph_detectors = {
-            name: PageHinkleyDetector() for name in self.feature_names
-        }
+        self._ph_detectors = {name: PageHinkleyDetector() for name in self.feature_names}
         logger.info(
             "DriftDetector reference fitted: n_samples=%d, n_features=%d",
             self._reference.shape[0],
@@ -160,9 +158,7 @@ class DriftDetector:
             else:
                 severity = "drift"
 
-            drift_detected = (
-                ks_pvalue < self.drift_threshold or severity == "drift"
-            )
+            drift_detected = ks_pvalue < self.drift_threshold or severity == "drift"
 
             results.append(
                 DriftResult(
@@ -201,7 +197,10 @@ class DriftDetector:
         any_drift = any(r.drift_detected for r in results)
         return {
             "drift_detected": any_drift,
-            "severity": max((r.severity for r in results), key=lambda s: ["stable", "monitoring", "drift"].index(s)),
+            "severity": max(
+                (r.severity for r in results),
+                key=lambda s: ["stable", "monitoring", "drift"].index(s),
+            ),
             "affected_features": [r.feature_name for r in results if r.drift_detected],
             "feature_details": [
                 {

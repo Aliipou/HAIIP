@@ -3,7 +3,6 @@
 import pytest
 from httpx import AsyncClient
 
-
 VALID_READING = {
     "machine_id": "MACHINE-001",
     "air_temperature": 300.0,

@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 import pytest
+
 from haiip.core.safety import (
+    AI_IS_ADVISORY,
+    ESCALATION_CONFIDENCE_THRESHOLD,
+    HAIIP_FMEA,
     DiagnosticCoverage,
     FMEAEntry,
-    HAIIP_FMEA,
     SafetyLayer,
-    SafetyDecision,
     SILLevel,
-    ESCALATION_CONFIDENCE_THRESHOLD,
-    AI_IS_ADVISORY,
 )
-
 
 # ── SILLevel ─────────────────────────────────────────────────────────────────
 
-class TestSILLevel:
 
+class TestSILLevel:
     def test_sil_levels_ordered(self):
         assert SILLevel.SIL_0 < SILLevel.SIL_1 < SILLevel.SIL_2 < SILLevel.SIL_3 < SILLevel.SIL_4
 
@@ -28,14 +27,16 @@ class TestSILLevel:
 
 # ── FMEAEntry ─────────────────────────────────────────────────────────────────
 
-class TestFMEAEntry:
 
+class TestFMEAEntry:
     def _entry(self, s=5, o=5, d=5):
         return FMEAEntry(
             component="Test",
             failure_mode="test fault",
             effect="test effect",
-            severity=s, occurrence=o, detectability=d,
+            severity=s,
+            occurrence=o,
+            detectability=d,
         )
 
     def test_rpn_calculation(self):
@@ -47,15 +48,15 @@ class TestFMEAEntry:
         assert e.rpn == 1000
 
     def test_sil_required_0_low_rpn(self):
-        e = self._entry(2, 2, 2)   # rpn=8
+        e = self._entry(2, 2, 2)  # rpn=8
         assert e.sil_required == SILLevel.SIL_0
 
     def test_sil_required_1_mid_rpn(self):
-        e = self._entry(4, 4, 5)   # rpn=80
+        e = self._entry(4, 4, 5)  # rpn=80
         assert e.sil_required == SILLevel.SIL_1
 
     def test_sil_required_2_high_rpn(self):
-        e = self._entry(5, 5, 9)   # rpn=225
+        e = self._entry(5, 5, 9)  # rpn=225
         assert e.sil_required == SILLevel.SIL_2
 
     def test_sil_required_3_critical_rpn(self):
@@ -63,11 +64,11 @@ class TestFMEAEntry:
         assert e.sil_required == SILLevel.SIL_3
 
     def test_rpn_boundary_80(self):
-        e = self._entry(4, 4, 5)   # rpn=80 exactly → SIL_1
+        e = self._entry(4, 4, 5)  # rpn=80 exactly → SIL_1
         assert e.sil_required == SILLevel.SIL_1
 
     def test_rpn_boundary_200(self):
-        e = self._entry(5, 5, 8)   # rpn=200 → SIL_2
+        e = self._entry(5, 5, 8)  # rpn=200 → SIL_2
         assert e.sil_required == SILLevel.SIL_2
 
     def test_rpn_boundary_500(self):
@@ -77,8 +78,8 @@ class TestFMEAEntry:
 
 # ── DiagnosticCoverage ────────────────────────────────────────────────────────
 
-class TestDiagnosticCoverage:
 
+class TestDiagnosticCoverage:
     def test_dc_calculation(self):
         dc = DiagnosticCoverage(total_failure_rate=1.0, detected_failure_rate=0.95)
         assert abs(dc.dc - 0.95) < 1e-9
@@ -110,14 +111,18 @@ class TestDiagnosticCoverage:
 
 # ── SafetyLayer ───────────────────────────────────────────────────────────────
 
-class TestSafetyLayer:
 
+class TestSafetyLayer:
     @pytest.fixture
     def layer(self):
         return SafetyLayer()
 
     def _prediction(self, label="normal", confidence=0.90, anomaly_score=0.1):
-        return {"label": label, "confidence": confidence, "anomaly_score": anomaly_score}
+        return {
+            "label": label,
+            "confidence": confidence,
+            "anomaly_score": anomaly_score,
+        }
 
     def test_normal_high_confidence_passes(self, layer):
         decision = layer.check(self._prediction())
@@ -154,7 +159,9 @@ class TestSafetyLayer:
         assert "fail-safe" in decision.reason
 
     def test_anomaly_label_stays_anomaly(self, layer):
-        decision = layer.check(self._prediction(label="anomaly", confidence=0.90, anomaly_score=0.7))
+        decision = layer.check(
+            self._prediction(label="anomaly", confidence=0.90, anomaly_score=0.7)
+        )
         assert decision.safe_label == "anomaly"
 
     def test_decision_has_timestamp(self, layer):
@@ -205,8 +212,8 @@ class TestSafetyLayer:
 
 # ── FMEA helpers ──────────────────────────────────────────────────────────────
 
-class TestFMEAHelpers:
 
+class TestFMEAHelpers:
     def test_compute_fmea_empty(self):
         result = SafetyLayer.compute_fmea([])
         assert result["max_rpn"] == 0
@@ -245,8 +252,8 @@ class TestFMEAHelpers:
 
 # ── PFD estimation ────────────────────────────────────────────────────────────
 
-class TestPFDEstimation:
 
+class TestPFDEstimation:
     def test_pfd_sil2_target(self):
         # λ_D = 1e-6 /h, T_I = 8760h (annual test) → PFD_avg ≈ 4.4e-3 (SIL-2 band)
         pfd = SafetyLayer.estimate_pfd(lambda_d=1e-6, proof_test_interval_h=8760)
@@ -280,8 +287,10 @@ class TestPFDEstimation:
 
 # ── Module-level constants ────────────────────────────────────────────────────
 
+
 def test_ai_is_advisory():
     assert AI_IS_ADVISORY is True
+
 
 def test_escalation_threshold_reasonable():
     assert 0.5 <= ESCALATION_CONFIDENCE_THRESHOLD <= 0.9

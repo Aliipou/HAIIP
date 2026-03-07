@@ -25,6 +25,7 @@ import hmac
 import logging
 import re
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -35,42 +36,56 @@ logger = logging.getLogger(__name__)
 _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "email": re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b"),
     "phone_intl": re.compile(r"\+\d{1,3}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{1,4}[\s\-]?\d{1,9}"),
-    "phone_fi": re.compile(r"\b0\d{2}[\s\-]?\d{3}[\s\-]?\d{4}\b"),   # Finnish format
-    "ssn_fi": re.compile(r"\b\d{6}[-+A]\d{3}[0-9A-FHJ-NPR-Y]\b"),    # Finnish HETU
+    "phone_fi": re.compile(r"\b0\d{2}[\s\-]?\d{3}[\s\-]?\d{4}\b"),  # Finnish format
+    "ssn_fi": re.compile(r"\b\d{6}[-+A]\d{3}[0-9A-FHJ-NPR-Y]\b"),  # Finnish HETU
     "credit_card": re.compile(r"\b(?:\d{4}[\s\-]?){3}\d{4}\b"),
     "iban": re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{1,30}\b"),
 }
 
 # Fields considered sensitive in HAIIP context
-_SENSITIVE_FIELD_NAMES = frozenset({
-    "email", "username", "full_name", "name", "phone",
-    "address", "ip_address", "user_agent", "password",
-    "hashed_password", "access_token", "refresh_token",
-})
+_SENSITIVE_FIELD_NAMES = frozenset(
+    {
+        "email",
+        "username",
+        "full_name",
+        "name",
+        "phone",
+        "address",
+        "ip_address",
+        "user_agent",
+        "password",
+        "hashed_password",
+        "access_token",
+        "refresh_token",
+    }
+)
 
 
 @dataclass
 class PIIDetectionResult:
     """Result of scanning a value for PII."""
+
     has_pii: bool
     pii_types: list[str]
-    redacted_value: Any   # value with PII replaced
+    redacted_value: Any  # value with PII replaced
 
 
 @dataclass
 class ErasureRequest:
     """GDPR Art.17 erasure request record."""
+
     tenant_id: str
-    subject_id: str        # user_id or machine_id
-    requested_at: str      # ISO timestamp
+    subject_id: str  # user_id or machine_id
+    requested_at: str  # ISO timestamp
     tables_affected: list[str] = field(default_factory=list)
     records_deleted: int = 0
-    status: str = "pending"   # pending | completed | error
+    status: str = "pending"  # pending | completed | error
 
 
 @dataclass
 class DataExportResult:
     """GDPR Art.20 portability export."""
+
     tenant_id: str
     subject_id: str
     exported_at: str
@@ -143,8 +158,13 @@ class DataPrivacyEngine:
                 result[key] = self.scrub_pii(value, depth + 1)
             elif isinstance(value, list):
                 result[key] = [
-                    self.scrub_pii(v, depth + 1) if isinstance(v, dict) else
-                    (self.detect_pii(v).redacted_value if isinstance(v, str) and self.detect_in_values else v)
+                    self.scrub_pii(v, depth + 1)
+                    if isinstance(v, dict)
+                    else (
+                        self.detect_pii(v).redacted_value
+                        if isinstance(v, str) and self.detect_in_values
+                        else v
+                    )
                     for v in value
                 ]
             elif isinstance(value, str) and self.detect_in_values:
@@ -211,13 +231,14 @@ class DataPrivacyEngine:
         expiry_days: int = 365,
     ) -> bool:
         """Check if consent has expired (GDPR recommends annual renewal)."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
+
         try:
             granted = datetime.fromisoformat(granted_at_iso.replace("Z", "+00:00"))
             expiry = granted + timedelta(days=expiry_days)
-            return datetime.now(timezone.utc) > expiry
+            return datetime.now(UTC) > expiry
         except (ValueError, AttributeError):
-            return True   # malformed date → treat as expired (safe default)
+            return True  # malformed date → treat as expired (safe default)
 
     # ── Data minimization ─────────────────────────────────────────────────────
 
@@ -236,9 +257,9 @@ class DataPrivacyEngine:
 
         Returns (kept_records, deleted_count).
         """
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
 
-        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
         kept: list[dict[str, Any]] = []
         deleted = 0
 
@@ -250,7 +271,7 @@ class DataPrivacyEngine:
             try:
                 ts = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=UTC)
                 if ts >= cutoff:
                     kept.append(record)
                 else:

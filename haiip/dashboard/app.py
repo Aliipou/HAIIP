@@ -15,7 +15,7 @@ Pages:
 
 import streamlit as st
 
-from haiip.dashboard.components.auth import require_login, render_login_page
+from haiip.dashboard.components.auth import render_login_page, require_login
 from haiip.dashboard.components.sidebar import render_sidebar
 from haiip.dashboard.components.theme import apply_theme
 
@@ -45,28 +45,37 @@ page = render_sidebar()
 # ── Page routing ──────────────────────────────────────────────────────────────
 if page == "Overview":
     from haiip.dashboard.pages.overview import render
+
     render()
 elif page == "Live Monitor":
     from haiip.dashboard.pages.live_monitor import render
+
     render()
 elif page == "Maintenance":
     from haiip.dashboard.pages.maintenance import render
+
     render()
 elif page == "Alerts":
     from haiip.dashboard.pages.alerts import render
+
     render()
 elif page == "Query":
     from haiip.dashboard.pages.query import render
+
     render()
 elif page == "Feedback":
     from haiip.dashboard.pages.feedback import render
+
     render()
 elif page == "ROI Calculator":
     from haiip.dashboard.pages.roi_calculator import render
+
     render()
 elif page == "Audit Trail":
     from haiip.dashboard.pages.audit_trail import render
+
     render()
 elif page == "Admin":
     from haiip.dashboard.pages.admin import render
+
     render()

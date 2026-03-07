@@ -14,12 +14,12 @@ This module is source-agnostic: same pipeline handles OPC UA, MQTT, CSV.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from haiip.core.anomaly import AnomalyDetector
 from haiip.core.drift import DriftDetector
@@ -40,6 +40,7 @@ STANDARD_FEATURE_ORDER = [
 @dataclass
 class NormalisedReading:
     """Source-agnostic, validated sensor reading."""
+
     machine_id: str
     tenant_id: str
     timestamp: datetime
@@ -130,8 +131,10 @@ class IngestionPipeline:
             anomaly_result = self._anomaly_detector.predict(reading.feature_vector)
         else:
             anomaly_result = {
-                "label": "normal", "confidence": 0.5,
-                "anomaly_score": 0.0, "explanation": {},
+                "label": "normal",
+                "confidence": 0.5,
+                "anomaly_score": 0.0,
+                "explanation": {},
             }
 
         # Step 3: Check concept drift (streaming)
@@ -222,7 +225,7 @@ class IngestionPipeline:
         return NormalisedReading(
             machine_id=machine_id,
             tenant_id=self.tenant_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             air_temperature=buffer["air_temperature"],
             process_temperature=buffer["process_temperature"],
             rotational_speed=buffer["rotational_speed"],
@@ -236,7 +239,7 @@ class IngestionPipeline:
         return NormalisedReading(
             machine_id=sim_reading["machine_id"],
             tenant_id=self.tenant_id,
-            timestamp=datetime.fromtimestamp(sim_reading["timestamp"], tz=timezone.utc),
+            timestamp=datetime.fromtimestamp(sim_reading["timestamp"], tz=UTC),
             air_temperature=sim_reading["air_temperature"],
             process_temperature=sim_reading["process_temperature"],
             rotational_speed=sim_reading["rotational_speed"],

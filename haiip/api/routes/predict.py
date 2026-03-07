@@ -6,7 +6,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
-from haiip.api.deps import CurrentUser, DB, EngineerUser
+from haiip.api.deps import DB, CurrentUser
 from haiip.api.models import Prediction
 from haiip.api.schemas import (
     APIResponse,
@@ -91,10 +91,12 @@ async def predict_single(
         confidence=result["confidence"],
         anomaly_score=result.get("anomaly_score"),
         input_features=json.dumps(body.model_dump()),
-        explanation=json.dumps({
-            **result.get("explanation", {}),
-            "model_version": model_version,
-        }),
+        explanation=json.dumps(
+            {
+                **result.get("explanation", {}),
+                "model_version": model_version,
+            }
+        ),
     )
     db.add(prediction)
     await db.flush()
@@ -121,7 +123,11 @@ async def predict_single(
     return APIResponse(data=prediction)
 
 
-@router.post("/predict/batch", response_model=APIResponse[list[PredictionResponse]], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/predict/batch",
+    response_model=APIResponse[list[PredictionResponse]],
+    status_code=status.HTTP_201_CREATED,
+)
 async def predict_batch(
     body: BatchPredictRequest,
     current_user: CurrentUser,
@@ -181,15 +187,11 @@ async def list_predictions(
     if machine_id:
         base_query = base_query.where(Prediction.machine_id == machine_id)
 
-    count_result = await db.execute(
-        select(func.count()).select_from(base_query.subquery())
-    )
+    count_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
     total = count_result.scalar_one()
 
     result = await db.execute(
-        base_query.order_by(Prediction.created_at.desc())
-        .offset((page - 1) * size)
-        .limit(size)
+        base_query.order_by(Prediction.created_at.desc()).offset((page - 1) * size).limit(size)
     )
     items = list(result.scalars().all())
 

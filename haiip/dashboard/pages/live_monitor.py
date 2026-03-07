@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import numpy as np
 import streamlit as st
 
 from haiip.dashboard.components.auth import api_post, is_demo
@@ -15,7 +14,7 @@ from haiip.dashboard.components.charts import (
     sensor_timeseries,
 )
 from haiip.dashboard.components.demo_data import demo_machines, demo_sensor_stream
-from haiip.dashboard.components.theme import badge, kpi_card, section_title, status_dot
+from haiip.dashboard.components.theme import badge, kpi_card, section_title
 
 
 def render() -> None:
@@ -88,13 +87,13 @@ def render() -> None:
                     {badge(label.upper(), s)}
                 </div>
                 <div style="font-size:0.85rem; color:#718096; margin-top:0.75rem;">
-                    Confidence: <strong style="color:#E2E8F0;">{conf*100:.1f}%</strong>
+                    Confidence: <strong style="color:#E2E8F0;">{conf * 100:.1f}%</strong>
                 </div>
                 <div style="font-size:0.85rem; color:#718096; margin-top:0.25rem;">
                     Machine: <strong style="color:#E2E8F0;">{selected_machine}</strong>
                 </div>
                 <div style="font-size:0.85rem; color:#718096; margin-top:0.25rem;">
-                    Updated: <strong style="color:#E2E8F0;">{datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC</strong>
+                    Updated: <strong style="color:#E2E8F0;">{datetime.now(UTC).strftime("%H:%M:%S")} UTC</strong>
                 </div>
             </div>
             """,
@@ -141,9 +140,18 @@ def render() -> None:
     # ── Raw data table ────────────────────────────────────────────────────────
     with st.expander("📊 Raw data table"):
         import pandas as pd
+
         df = pd.DataFrame(buf[-20:])
-        cols = ["timestamp", "air_temperature", "process_temperature",
-                "rotational_speed", "torque", "tool_wear", "label", "confidence"]
+        cols = [
+            "timestamp",
+            "air_temperature",
+            "process_temperature",
+            "rotational_speed",
+            "torque",
+            "tool_wear",
+            "label",
+            "confidence",
+        ]
         st.dataframe(
             df[[c for c in cols if c in df.columns]].sort_values("timestamp", ascending=False),
             use_container_width=True,
@@ -159,21 +167,33 @@ def _fetch_reading(machine_id: str) -> dict:
     """Fetch one reading from simulator or API."""
     if is_demo():
         from haiip.data.simulation.simulator import IndustrialSimulator, SimulatorConfig
-        sim = IndustrialSimulator(SimulatorConfig(machine_id=machine_id, seed=int(time.time()) % 10000))
+
+        sim = IndustrialSimulator(
+            SimulatorConfig(machine_id=machine_id, seed=int(time.time()) % 10000)
+        )
         r = sim.next()
         from haiip.core.anomaly import AnomalyDetector
+
         det = AnomalyDetector()
-        features = [r["air_temperature"], r["process_temperature"],
-                    r["rotational_speed"], r["torque"], r["tool_wear"]]
+        features = [
+            r["air_temperature"],
+            r["process_temperature"],
+            r["rotational_speed"],
+            r["torque"],
+            r["tool_wear"],
+        ]
         result = det.predict(features)
-        r.update({
-            "label": result["label"],
-            "confidence": result["confidence"],
-            "anomaly_score": result["anomaly_score"],
-        })
+        r.update(
+            {
+                "label": result["label"],
+                "confidence": result["confidence"],
+                "anomaly_score": result["anomaly_score"],
+            }
+        )
         return r
     else:
         import numpy as np
+
         rng = np.random.default_rng()
         payload = {
             "machine_id": machine_id,
@@ -186,7 +206,7 @@ def _fetch_reading(machine_id: str) -> dict:
         result = api_post("/api/v1/predict", payload) or {}
         data = result.get("data", {})
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "machine_id": machine_id,
             **payload,
             "label": data.get("prediction_label", "normal"),

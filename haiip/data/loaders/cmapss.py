@@ -18,7 +18,6 @@ Used for: RUL prediction, degradation curve modeling
 
 from __future__ import annotations
 
-import io
 import logging
 from pathlib import Path
 
@@ -34,9 +33,20 @@ OP_COLS = ["op_setting_1", "op_setting_2", "op_setting_3"]
 
 # Sensors known to carry signal (others are near-constant in FD001)
 INFORMATIVE_SENSORS = [
-    "sensor_02", "sensor_03", "sensor_04", "sensor_07", "sensor_08",
-    "sensor_09", "sensor_11", "sensor_12", "sensor_13", "sensor_14",
-    "sensor_15", "sensor_17", "sensor_20", "sensor_21",
+    "sensor_02",
+    "sensor_03",
+    "sensor_04",
+    "sensor_07",
+    "sensor_08",
+    "sensor_09",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21",
 ]
 
 FEATURE_COLS = INFORMATIVE_SENSORS + OP_COLS
@@ -116,22 +126,22 @@ class CMAPSSLoader(BaseDatasetLoader):
             max_cycle = rng.integers(100, 362)  # CMAPSS range
             for cycle in range(1, max_cycle + 1):
                 t = cycle / max_cycle  # degradation progress [0, 1]
-                sensors = {
-                    col: rng.normal(0.5 + 0.3 * t, 0.05) for col in INFORMATIVE_SENSORS
-                }
+                sensors = {col: rng.normal(0.5 + 0.3 * t, 0.05) for col in INFORMATIVE_SENSORS}
                 ops = {
                     "op_setting_1": round(float(rng.choice([35, 42, 100])), 2),
                     "op_setting_2": round(float(rng.choice([0.84, 0.64, 0.25])), 4),
                     "op_setting_3": round(float(rng.choice([60, 60, 60])), 0),
                 }
                 rul = max_cycle - cycle
-                records.append({
-                    "unit_id": unit_id,
-                    "cycle": cycle,
-                    **ops,
-                    **sensors,
-                    "rul": rul,
-                })
+                records.append(
+                    {
+                        "unit_id": unit_id,
+                        "cycle": cycle,
+                        **ops,
+                        **sensors,
+                        "rul": rul,
+                    }
+                )
 
         df = pd.DataFrame(records)
         logger.info("CMAPSS: synthetic generated (%d rows)", len(df))
@@ -149,9 +159,7 @@ class CMAPSSLoader(BaseDatasetLoader):
                     df[col] = (df[col] - col_min) / (col_max - col_min)
         return df
 
-    def get_sequences(
-        self, seq_len: int = 30
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def get_sequences(self, seq_len: int = 30) -> tuple[np.ndarray, np.ndarray]:
         """Return (X, y) as sliding-window sequences for LSTM training.
 
         X: (n_sequences, seq_len, n_features)

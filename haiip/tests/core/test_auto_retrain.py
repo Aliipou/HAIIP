@@ -11,9 +11,8 @@ Test categories:
 from __future__ import annotations
 
 import threading
-import time
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -229,7 +228,9 @@ class TestModelEvaluatorAnomaly:
         m.predict.return_value = {"label": label, "anomaly_score": score}
         return m
 
-    def test_evaluate_returns_model_metrics(self, normal_X: np.ndarray, binary_y: np.ndarray) -> None:
+    def test_evaluate_returns_model_metrics(
+        self, normal_X: np.ndarray, binary_y: np.ndarray
+    ) -> None:
         model = self._make_model("normal", 0.0)
         metrics = ModelEvaluator.evaluate_anomaly(model, normal_X, binary_y)
         assert isinstance(metrics, ModelMetrics)
@@ -261,7 +262,6 @@ class TestModelEvaluatorAnomaly:
 
     def test_perfect_model_high_f1(self, normal_X: np.ndarray, binary_y: np.ndarray) -> None:
         def predict(features: Any) -> dict:
-            idx = 0
             return {
                 "label": "normal",
                 "anomaly_score": 0.0,
@@ -290,7 +290,9 @@ class TestModelEvaluatorMaintenance:
         metrics = ModelEvaluator.evaluate_maintenance(model, normal_X, class_y)
         assert isinstance(metrics, ModelMetrics)
 
-    def test_evaluate_with_rul(self, normal_X: np.ndarray, class_y: np.ndarray, rul_y: np.ndarray) -> None:
+    def test_evaluate_with_rul(
+        self, normal_X: np.ndarray, class_y: np.ndarray, rul_y: np.ndarray
+    ) -> None:
         model = self._make_model()
         metrics = ModelEvaluator.evaluate_maintenance(model, normal_X, class_y, rul_y)
         assert metrics.rmse_rul != float("inf")
@@ -303,7 +305,11 @@ class TestModelEvaluatorMaintenance:
 
     def test_auc_fallback_on_single_class(self, normal_X: np.ndarray) -> None:
         model = MagicMock()
-        model.predict.return_value = {"label": "no_failure", "failure_probability": 0.0, "rul_cycles": 100}
+        model.predict.return_value = {
+            "label": "no_failure",
+            "failure_probability": 0.0,
+            "rul_cycles": 100,
+        }
         y_all_normal = np.array(["no_failure"] * len(normal_X))
         # AUC with single class should not crash
         metrics = ModelEvaluator.evaluate_maintenance(model, normal_X, y_all_normal)
@@ -508,18 +514,24 @@ class TestAutoRetrainPipelineRegisterChampion:
 
 
 class TestAutoRetrainPipelineMaybeRetrain:
-    def test_no_trigger_returns_none(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_no_trigger_returns_none(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         # cooldown=0 but no drift + good accuracy
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.95)
         assert event is None
 
-    def test_drift_trigger_returns_event(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_drift_trigger_returns_event(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         drifts = [_make_drift_result("drift")]
         event = pipeline.maybe_retrain(normal_X, drift_results=drifts)
         assert event is not None
         assert isinstance(event, RetrainEvent)
 
-    def test_accuracy_trigger_returns_event(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_accuracy_trigger_returns_event(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
 
@@ -528,59 +540,81 @@ class TestAutoRetrainPipelineMaybeRetrain:
         assert event is not None
         assert event.tenant_id == "test-tenant"
 
-    def test_event_status_complete(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_status_complete(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert event.status == RetrainStatus.COMPLETE
 
-    def test_event_has_trigger_reason(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_has_trigger_reason(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert event.trigger_reason == TriggerReason.ACCURACY_DROP
 
-    def test_event_has_n_training_samples(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_has_n_training_samples(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert event.n_training_samples == len(normal_X)
 
-    def test_event_has_timestamps(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_has_timestamps(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert event.triggered_at != ""
         assert event.completed_at is not None
 
-    def test_event_has_challenger_metrics(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_has_challenger_metrics(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert "f1_macro" in event.challenger_metrics
 
-    def test_event_has_champion_metrics(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_has_champion_metrics(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert event is not None
         assert "f1_macro" in event.champion_metrics
 
-    def test_event_recorded_in_history(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_event_recorded_in_history(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         assert len(pipeline.events) == 1
 
-    def test_manual_reason_bypasses_trigger(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_manual_reason_bypasses_trigger(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         event = pipeline.maybe_retrain(normal_X, reason=TriggerReason.MANUAL)
         assert event is not None
         assert event.trigger_reason == TriggerReason.MANUAL
 
-    def test_drift_severity_recorded(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_drift_severity_recorded(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         drifts = [_make_drift_result("drift")]
         event = pipeline.maybe_retrain(normal_X, drift_results=drifts)
         assert event is not None
         assert event.drift_severity == "drift"
 
-    def test_monitoring_severity_recorded(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_monitoring_severity_recorded(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         drifts = [_make_drift_result("monitoring")]
         event = pipeline.maybe_retrain(normal_X, drift_results=drifts, feedback_accuracy=0.60)
         assert event is not None
         assert event.drift_severity in ("monitoring", "drift")
 
-    def test_stable_drift_severity(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_stable_drift_severity(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         drifts = [_make_drift_result("stable")]
         event = pipeline.maybe_retrain(normal_X, drift_results=drifts, feedback_accuracy=0.60)
         if event is not None:
@@ -597,6 +631,7 @@ class TestAutoRetrainPipelineFailedTraining:
             train_fn=lambda X: None,  # returns None → fail
         )
         from haiip.core.anomaly import AnomalyDetector
+
         detector = AnomalyDetector(contamination=0.05, n_estimators=10)
         detector.fit(normal_X)
         p.register_champion(detector, normal_X, binary_y)
@@ -606,9 +641,7 @@ class TestAutoRetrainPipelineFailedTraining:
         assert event.status == RetrainStatus.FAILED
         assert event.error is not None
 
-    def test_exception_in_train_fn_caught(
-        self, normal_X: np.ndarray, binary_y: np.ndarray
-    ) -> None:
+    def test_exception_in_train_fn_caught(self, normal_X: np.ndarray, binary_y: np.ndarray) -> None:
         def bad_train(X: np.ndarray) -> Any:
             raise RuntimeError("disk full")
 
@@ -618,6 +651,7 @@ class TestAutoRetrainPipelineFailedTraining:
             train_fn=bad_train,
         )
         from haiip.core.anomaly import AnomalyDetector
+
         d = AnomalyDetector(contamination=0.05, n_estimators=10)
         d.fit(normal_X)
         p.register_champion(d, normal_X, binary_y)
@@ -675,18 +709,29 @@ class TestAutoRetrainPipelineSummary:
     def test_summary_keys(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
         s = pipeline.summary()
         for key in (
-            "tenant_id", "status", "total_retrain_events", "successful_retrain",
-            "promotions", "champion_f1", "champion_auc", "samples_since_retrain", "last_retrain",
+            "tenant_id",
+            "status",
+            "total_retrain_events",
+            "successful_retrain",
+            "promotions",
+            "champion_f1",
+            "champion_auc",
+            "samples_since_retrain",
+            "last_retrain",
         ):
             assert key in s
 
-    def test_summary_after_retrain(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_summary_after_retrain(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         s = pipeline.summary()
         assert s["total_retrain_events"] == 1
         assert s["last_retrain"] is not None
 
-    def test_summary_counts_promotions(self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray) -> None:
+    def test_summary_counts_promotions(
+        self, pipeline: AutoRetrainPipeline, normal_X: np.ndarray
+    ) -> None:
         pipeline.maybe_retrain(normal_X, feedback_accuracy=0.60)
         s = pipeline.summary()
         assert s["promotions"] >= 0  # may or may not promote depending on metrics
@@ -744,12 +789,13 @@ class TestIntegration:
 
         assert event is not None
         assert event.status == RetrainStatus.COMPLETE
-        assert event.trigger_reason in (TriggerReason.DRIFT_CRITICAL, TriggerReason.COMBINED)
+        assert event.trigger_reason in (
+            TriggerReason.DRIFT_CRITICAL,
+            TriggerReason.COMBINED,
+        )
         assert p.current_champion is not None
 
-    def test_multiple_retrain_cycles(
-        self, normal_X: np.ndarray, binary_y: np.ndarray
-    ) -> None:
+    def test_multiple_retrain_cycles(self, normal_X: np.ndarray, binary_y: np.ndarray) -> None:
         """Two consecutive retrain cycles both complete successfully."""
         from haiip.core.anomaly import AnomalyDetector
 

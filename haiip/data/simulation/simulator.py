@@ -10,8 +10,9 @@ Used for:
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 
@@ -23,15 +24,15 @@ class SimulatorConfig:
     # Normal operating ranges (AI4I 2020 distributions)
     air_temp_mean: float = 300.0
     air_temp_std: float = 2.0
-    process_temp_delta: float = 10.0      # process_temp = air_temp + delta
+    process_temp_delta: float = 10.0  # process_temp = air_temp + delta
     process_temp_std: float = 1.5
     rpm_mean: float = 1538.0
     rpm_std: float = 179.0
     torque_mean: float = 40.0
     torque_std: float = 9.8
-    tool_wear_increment: float = 0.5      # minutes per cycle
+    tool_wear_increment: float = 0.5  # minutes per cycle
     tool_wear_max: float = 253.0
-    fault_probability: float = 0.03      # 3% of readings are faults
+    fault_probability: float = 0.03  # 3% of readings are faults
 
 
 class IndustrialSimulator:
@@ -58,13 +59,14 @@ class IndustrialSimulator:
         self._tool_wear = min(self._tool_wear + cfg.tool_wear_increment, cfg.tool_wear_max)
 
         if inject_fault or (
-            self._rng.random() < cfg.fault_probability
-            or self._tool_wear > cfg.tool_wear_max * 0.9
+            self._rng.random() < cfg.fault_probability or self._tool_wear > cfg.tool_wear_max * 0.9
         ):
             return self._fault_reading()
 
         air_temp = float(self._rng.normal(cfg.air_temp_mean, cfg.air_temp_std))
-        process_temp = float(air_temp + cfg.process_temp_delta + self._rng.normal(0, cfg.process_temp_std))
+        process_temp = float(
+            air_temp + cfg.process_temp_delta + self._rng.normal(0, cfg.process_temp_std)
+        )
         rpm = float(max(100.0, self._rng.normal(cfg.rpm_mean, cfg.rpm_std)))
         torque = float(max(0.0, self._rng.normal(cfg.torque_mean, cfg.torque_std)))
 

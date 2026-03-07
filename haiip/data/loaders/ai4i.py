@@ -148,21 +148,25 @@ class AI4ILoader(BaseDatasetLoader):
 
         rows = []
         for i in range(n_normal):
-            rows.append({
-                **{k: v[i] for k, v in normal_data.items()},
-                "machine_failure": 0,
-                "failure_type": "no_failure",
-                "product_type": rng.choice(["L", "M", "H"], p=[0.5, 0.3, 0.2]),
-            })
+            rows.append(
+                {
+                    **{k: v[i] for k, v in normal_data.items()},
+                    "machine_failure": 0,
+                    "failure_type": "no_failure",
+                    "product_type": rng.choice(["L", "M", "H"], p=[0.5, 0.3, 0.2]),
+                }
+            )
 
         failure_modes = ["TWF", "HDF", "PWF", "OSF", "RNF"]
         for i in range(n_anomaly):
-            rows.append({
-                **{k: v[i] for k, v in anomaly_data.items()},
-                "machine_failure": 1,
-                "failure_type": rng.choice(failure_modes),
-                "product_type": rng.choice(["L", "M", "H"], p=[0.5, 0.3, 0.2]),
-            })
+            rows.append(
+                {
+                    **{k: v[i] for k, v in anomaly_data.items()},
+                    "machine_failure": 1,
+                    "failure_type": rng.choice(failure_modes),
+                    "product_type": rng.choice(["L", "M", "H"], p=[0.5, 0.3, 0.2]),
+                }
+            )
 
         df = pd.DataFrame(rows)
         df = df.sample(frac=1, random_state=seed).reset_index(drop=True)

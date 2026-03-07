@@ -41,8 +41,17 @@ def test_demo_sensor_stream_length():
 
 def test_demo_sensor_stream_required_fields():
     stream = demo_sensor_stream("CNC-001", n=5)
-    required = ["timestamp", "machine_id", "air_temperature", "process_temperature",
-                "rotational_speed", "torque", "tool_wear", "label", "confidence"]
+    required = [
+        "timestamp",
+        "machine_id",
+        "air_temperature",
+        "process_temperature",
+        "rotational_speed",
+        "torque",
+        "tool_wear",
+        "label",
+        "confidence",
+    ]
     for reading in stream:
         for key in required:
             assert key in reading, f"Missing key: {key}"

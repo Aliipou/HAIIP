@@ -10,10 +10,15 @@ import pytest
 DASHBOARDS_DIR = Path(__file__).parents[3] / "grafana" / "dashboards"
 PROVISIONING_DIR = Path(__file__).parents[3] / "grafana" / "provisioning"
 
-EXPECTED_DASHBOARDS = ["fleet_health.json", "drift_detection.json", "economic_decisions.json"]
+EXPECTED_DASHBOARDS = [
+    "fleet_health.json",
+    "drift_detection.json",
+    "economic_decisions.json",
+]
 
 
 # ── File existence ─────────────────────────────────────────────────────────────
+
 
 def test_dashboard_files_exist():
     for name in EXPECTED_DASHBOARDS:
@@ -30,6 +35,7 @@ def test_provisioning_dashboards_config_exists():
 
 # ── JSON validity ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("filename", EXPECTED_DASHBOARDS)
 def test_dashboard_is_valid_json(filename):
     path = DASHBOARDS_DIR / filename
@@ -39,6 +45,7 @@ def test_dashboard_is_valid_json(filename):
 
 
 # ── Required top-level fields ──────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("filename", EXPECTED_DASHBOARDS)
 def test_dashboard_has_required_fields(filename):
@@ -59,6 +66,7 @@ def test_dashboard_uid_is_unique(filename):
 
 
 # ── Panel structure ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("filename", EXPECTED_DASHBOARDS)
 def test_dashboard_has_panels(filename):
@@ -92,6 +100,7 @@ def test_panels_have_unique_ids(filename):
 
 # ── Tags ───────────────────────────────────────────────────────────────────────
 
+
 def test_fleet_health_tagged_correctly():
     data = json.loads((DASHBOARDS_DIR / "fleet_health.json").read_text())
     assert "haiip" in data["tags"]
@@ -109,6 +118,7 @@ def test_economic_dashboard_tagged_correctly():
 
 # ── Refresh intervals ─────────────────────────────────────────────────────────
 
+
 def test_fleet_health_has_fast_refresh():
     data = json.loads((DASHBOARDS_DIR / "fleet_health.json").read_text())
     # Fleet health should refresh at least every minute
@@ -116,6 +126,7 @@ def test_fleet_health_has_fast_refresh():
 
 
 # ── Provisioning YAML ─────────────────────────────────────────────────────────
+
 
 def test_datasource_provisioning_references_prometheus():
     content = (PROVISIONING_DIR / "datasources" / "prometheus.yml").read_text()

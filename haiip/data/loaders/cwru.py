@@ -26,13 +26,23 @@ from haiip.data.loaders.base import BaseDatasetLoader
 logger = logging.getLogger(__name__)
 
 FEATURE_COLS = [
-    "rms", "peak", "crest_factor", "kurtosis", "skewness", "variance",
-    "rms_fan", "kurtosis_fan",
+    "rms",
+    "peak",
+    "crest_factor",
+    "kurtosis",
+    "skewness",
+    "variance",
+    "rms_fan",
+    "kurtosis_fan",
 ]
 
 FAULT_LABELS = [
-    "normal", "inner_race", "ball",
-    "outer_race_centered", "outer_race_orthogonal", "outer_race_opposite",
+    "normal",
+    "inner_race",
+    "ball",
+    "outer_race_centered",
+    "outer_race_orthogonal",
+    "outer_race_opposite",
 ]
 
 SAMPLE_RATES = {12000, 48000}
@@ -89,9 +99,7 @@ class CWRULoader(BaseDatasetLoader):
 
                 for de_key in de_keys:
                     signal_de = data[de_key].flatten()
-                    signal_fe = (
-                        data[fe_keys[0]].flatten() if fe_keys else np.zeros_like(signal_de)
-                    )
+                    signal_fe = data[fe_keys[0]].flatten() if fe_keys else np.zeros_like(signal_de)
                     feats = self._extract_features(signal_de, signal_fe)
                     for feat in feats:
                         feat["label"] = label
@@ -116,16 +124,18 @@ class CWRULoader(BaseDatasetLoader):
 
             rms = float(np.sqrt(np.mean(w_de**2)))
             peak = float(np.max(np.abs(w_de)))
-            features_list.append({
-                "rms": rms,
-                "peak": peak,
-                "crest_factor": round(peak / (rms + 1e-8), 4),
-                "kurtosis": round(self._kurtosis(w_de), 4),
-                "skewness": round(self._skewness(w_de), 4),
-                "variance": round(float(np.var(w_de)), 8),
-                "rms_fan": round(float(np.sqrt(np.mean(w_fe**2))), 6),
-                "kurtosis_fan": round(self._kurtosis(w_fe), 4),
-            })
+            features_list.append(
+                {
+                    "rms": rms,
+                    "peak": peak,
+                    "crest_factor": round(peak / (rms + 1e-8), 4),
+                    "kurtosis": round(self._kurtosis(w_de), 4),
+                    "skewness": round(self._skewness(w_de), 4),
+                    "variance": round(float(np.var(w_de)), 8),
+                    "rms_fan": round(float(np.sqrt(np.mean(w_fe**2))), 6),
+                    "kurtosis_fan": round(self._kurtosis(w_fe), 4),
+                }
+            )
 
         return features_list
 
@@ -162,18 +172,20 @@ class CWRULoader(BaseDatasetLoader):
 
             for i in range(n_per):
                 r = abs(rms_vals[i])
-                records.append({
-                    "rms": round(r, 6),
-                    "peak": round(r * rng.uniform(3, 5), 6),
-                    "crest_factor": round(rng.uniform(3, 8), 4),
-                    "kurtosis": round(abs(kurt_vals[i]), 4),
-                    "skewness": round(float(rng.normal(0, 0.5)), 4),
-                    "variance": round(r**2, 8),
-                    "rms_fan": round(r * 0.8, 6),
-                    "kurtosis_fan": round(abs(kurt_vals[i]) * 0.9, 4),
-                    "label": label,
-                    "source_file": "synthetic",
-                })
+                records.append(
+                    {
+                        "rms": round(r, 6),
+                        "peak": round(r * rng.uniform(3, 5), 6),
+                        "crest_factor": round(rng.uniform(3, 8), 4),
+                        "kurtosis": round(abs(kurt_vals[i]), 4),
+                        "skewness": round(float(rng.normal(0, 0.5)), 4),
+                        "variance": round(r**2, 8),
+                        "rms_fan": round(r * 0.8, 6),
+                        "kurtosis_fan": round(abs(kurt_vals[i]) * 0.9, 4),
+                        "label": label,
+                        "source_file": "synthetic",
+                    }
+                )
 
         df = pd.DataFrame(records).sample(frac=1, random_state=seed).reset_index(drop=True)
         logger.info("CWRU: synthetic generated (%d rows)", len(df))

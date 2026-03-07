@@ -36,6 +36,7 @@ def _kafka_available() -> bool:
     if _confluent_available is None:
         try:
             import confluent_kafka  # noqa: F401
+
             _confluent_available = True
         except ImportError:
             _confluent_available = False
@@ -67,11 +68,11 @@ class SensorProducer:
 
             config: dict[str, Any] = {
                 "bootstrap.servers": bootstrap_servers,
-                "acks": "all",                 # wait for all ISRs
+                "acks": "all",  # wait for all ISRs
                 "retries": 5,
                 "retry.backoff.ms": 200,
                 "compression.type": "lz4",
-                "linger.ms": 5,               # micro-batching
+                "linger.ms": 5,  # micro-batching
                 "batch.size": 65536,
             }
             if extra_config:
@@ -104,7 +105,11 @@ class SensorProducer:
             return 0
         remaining = self._producer.flush(timeout=timeout)
         if remaining > 0:
-            logger.warning("Kafka flush: %d messages still in queue after %.1fs", remaining, timeout)
+            logger.warning(
+                "Kafka flush: %d messages still in queue after %.1fs",
+                remaining,
+                timeout,
+            )
         return remaining
 
     def poll(self, timeout: float = 0.0) -> int:
@@ -142,5 +147,7 @@ class SensorProducer:
         else:
             logger.debug(
                 "Kafka delivered: topic=%s partition=%d offset=%d",
-                msg.topic(), msg.partition(), msg.offset(),
+                msg.topic(),
+                msg.partition(),
+                msg.offset(),
             )

@@ -38,8 +38,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -53,13 +52,15 @@ logger = logging.getLogger(__name__)
 
 # ── SME node identifiers ───────────────────────────────────────────────────────
 
+
 class SMENode(str, Enum):
-    SME_FI = "SME_FI"   # Finland  — paper mill
-    SME_SE = "SME_SE"   # Sweden   — automotive stamping
-    SME_NO = "SME_NO"   # Norway   — offshore pumps
+    SME_FI = "SME_FI"  # Finland  — paper mill
+    SME_SE = "SME_SE"  # Sweden   — automotive stamping
+    SME_NO = "SME_NO"  # Norway   — offshore pumps
 
 
 # ── Data structures ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class NodeProfile:
@@ -74,13 +75,14 @@ class NodeProfile:
         country:          ISO 3166-1 alpha-2 country code
         industry:         Industry description
     """
-    node_id:       SMENode
-    n_samples:     int
-    failure_rate:  float
-    noise_std:     float
+
+    node_id: SMENode
+    n_samples: int
+    failure_rate: float
+    noise_std: float
     feature_shift: np.ndarray | None = None
-    country:       str = ""
-    industry:      str = ""
+    country: str = ""
+    industry: str = ""
 
 
 @dataclass
@@ -97,14 +99,15 @@ class RoundResult:
         round_duration_s:   Wall-clock time for this round
         converged:          True if improvement < convergence_threshold
     """
-    round_number:       int
-    global_f1:          float
-    global_auc:         float
-    node_f1s:           dict[str, float]
-    node_losses:        dict[str, float]
+
+    round_number: int
+    global_f1: float
+    global_auc: float
+    node_f1s: dict[str, float]
+    node_losses: dict[str, float]
     communication_cost: int
-    round_duration_s:   float
-    converged:          bool = False
+    round_duration_s: float
+    converged: bool = False
 
 
 @dataclass
@@ -124,20 +127,22 @@ class FederatedResult:
         converged_at:      Round number where convergence detected (or None)
         node_profiles:     Per-node configuration
     """
-    experiment_id:     str
-    rounds:            list[RoundResult]
-    final_global_f1:   float
-    final_global_auc:  float
-    centralized_f1:    float
-    centralized_auc:   float
-    federated_gap:     float
+
+    experiment_id: str
+    rounds: list[RoundResult]
+    final_global_f1: float
+    final_global_auc: float
+    centralized_f1: float
+    centralized_auc: float
+    federated_gap: float
     privacy_preserved: bool
-    total_rounds:      int
-    converged_at:      int | None
-    node_profiles:     dict[str, dict[str, Any]]
+    total_rounds: int
+    converged_at: int | None
+    node_profiles: dict[str, dict[str, Any]]
 
 
 # ── Node simulator ─────────────────────────────────────────────────────────────
+
 
 class FederatedNode:
     """Simulates one SME edge node in the federated network.
@@ -151,10 +156,10 @@ class FederatedNode:
     N_FEATURES = 5  # matches AI4I 2020 features
 
     def __init__(self, profile: NodeProfile, random_state: int = 42) -> None:
-        self.profile      = profile
-        self.rng          = np.random.default_rng(random_state)
+        self.profile = profile
+        self.rng = np.random.default_rng(random_state)
         self._local_model: GradientBoostingClassifier | None = None
-        self._scaler      = StandardScaler()
+        self._scaler = StandardScaler()
         self._X: np.ndarray | None = None
         self._y: np.ndarray | None = None
         self._generate_data()
@@ -170,7 +175,9 @@ class FederatedNode:
         X_fail = self.rng.normal(2.5, 1.2, (n_fail, self.N_FEATURES))
 
         # Apply node-specific noise and feature shift
-        noise = self.rng.normal(0.0, self.profile.noise_std, (self.profile.n_samples, self.N_FEATURES))
+        noise = self.rng.normal(
+            0.0, self.profile.noise_std, (self.profile.n_samples, self.N_FEATURES)
+        )
         X = np.vstack([X_norm, X_fail]) + noise
         if self.profile.feature_shift is not None:
             X += self.profile.feature_shift
@@ -209,7 +216,7 @@ class FederatedNode:
         # In a real deployment this would be gradient updates.
         # Here we train a fresh GBT using global hyperparameters as init.
         n_estimators = (global_params or {}).get("n_estimators", 50)
-        lr           = (global_params or {}).get("learning_rate", 0.1)
+        lr = (global_params or {}).get("learning_rate", 0.1)
 
         self._local_model = GradientBoostingClassifier(
             n_estimators=n_estimators * local_epochs,
@@ -232,13 +239,12 @@ class FederatedNode:
             return 0.0, float("inf")
         y_pred = self._local_model.predict(self._X)
         y_prob = self._local_model.predict_proba(self._X)[:, 1]
-        f1   = float(f1_score(self._y, y_pred, zero_division=0))
+        f1 = float(f1_score(self._y, y_pred, zero_division=0))
         # Cross-entropy proxy
-        eps  = 1e-9
-        loss = float(-np.mean(
-            self._y * np.log(y_prob + eps)
-            + (1 - self._y) * np.log(1 - y_prob + eps)
-        ))
+        eps = 1e-9
+        loss = float(
+            -np.mean(self._y * np.log(y_prob + eps) + (1 - self._y) * np.log(1 - y_prob + eps))
+        )
         return f1, loss
 
     def _apply_dp_noise(
@@ -253,15 +259,13 @@ class FederatedNode:
         Sensitivity = 1.0 (L2 clip assumed for GBT importances ∈ [0,1])
         """
         import math
+
         sensitivity = 1.0
-        sigma       = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / epsilon
+        sigma = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / epsilon
 
         importances = params.get("feature_importances", [])
         if importances:
-            noisy = [
-                float(np.clip(v + self.rng.normal(0.0, sigma), 0.0, 1.0))
-                for v in importances
-            ]
+            noisy = [float(np.clip(v + self.rng.normal(0.0, sigma), 0.0, 1.0)) for v in importances]
             # Re-normalise so importances sum to ≈1
             total = sum(noisy) or 1.0
             params = {**params, "feature_importances": [v / total for v in noisy]}
@@ -274,12 +278,10 @@ class FederatedNode:
         if self._local_model is None:
             return {}
         return {
-            "n_estimators":    self._local_model.n_estimators,
-            "learning_rate":   self._local_model.learning_rate,
-            "n_samples":       self.profile.n_samples,
-            "feature_importances": (
-                self._local_model.feature_importances_.tolist()
-            ),
+            "n_estimators": self._local_model.n_estimators,
+            "learning_rate": self._local_model.learning_rate,
+            "n_samples": self.profile.n_samples,
+            "feature_importances": (self._local_model.feature_importances_.tolist()),
         }
 
     @property
@@ -295,6 +297,7 @@ class FederatedNode:
 
 # ── FedAvg server ──────────────────────────────────────────────────────────────
 
+
 class FederatedServer:
     """Central aggregation server implementing FedAvg.
 
@@ -308,11 +311,11 @@ class FederatedServer:
         convergence_threshold: float = 0.002,
         random_state: int = 42,
     ) -> None:
-        self.nodes                 = nodes
+        self.nodes = nodes
         self.convergence_threshold = convergence_threshold
-        self._rng                  = np.random.default_rng(random_state)
+        self._rng = np.random.default_rng(random_state)
         self._global_params: dict[str, Any] = {
-            "n_estimators":  50,
+            "n_estimators": 50,
             "learning_rate": 0.1,
         }
         self._global_model: GradientBoostingClassifier | None = None
@@ -323,8 +326,8 @@ class FederatedServer:
         scaler = StandardScaler()
         Xs = [node.X[:50] for node in self.nodes]
         ys = [node.y[:50] for node in self.nodes]
-        X  = scaler.fit_transform(np.vstack(Xs))
-        y  = np.concatenate(ys)
+        X = scaler.fit_transform(np.vstack(Xs))
+        y = np.concatenate(ys)
         return X, y
 
     def fedavg(self, node_params: list[dict[str, Any]]) -> dict[str, Any]:
@@ -335,20 +338,20 @@ class FederatedServer:
         """
         total_samples = sum(p.get("n_samples", 1) for p in node_params)
         agg_estimators = 0.0
-        agg_lr         = 0.0
+        agg_lr = 0.0
         agg_importances = np.zeros(FederatedNode.N_FEATURES)
 
         for params in node_params:
             w = params.get("n_samples", 1) / total_samples
-            agg_estimators  += w * params.get("n_estimators", 50)
-            agg_lr          += w * params.get("learning_rate", 0.1)
-            importances      = params.get("feature_importances", [])
+            agg_estimators += w * params.get("n_estimators", 50)
+            agg_lr += w * params.get("learning_rate", 0.1)
+            importances = params.get("feature_importances", [])
             if importances:
                 agg_importances += w * np.array(importances)
 
         return {
-            "n_estimators":        int(round(agg_estimators)),
-            "learning_rate":       round(agg_lr, 4),
+            "n_estimators": int(round(agg_estimators)),
+            "learning_rate": round(agg_lr, 4),
             "feature_importances": agg_importances.tolist(),
         }
 
@@ -358,7 +361,7 @@ class FederatedServer:
             return 0.0, 0.0
         y_pred = self._global_model.predict(self._test_X)
         y_prob = self._global_model.predict_proba(self._test_X)[:, 1]
-        f1  = float(f1_score(self._test_y, y_pred, zero_division=0))
+        f1 = float(f1_score(self._test_y, y_pred, zero_division=0))
         try:
             auc = float(roc_auc_score(self._test_y, y_prob))
         except ValueError:
@@ -381,6 +384,7 @@ class FederatedServer:
 
 # ── Federated experiment runner ────────────────────────────────────────────────
 
+
 class FederatedLearner:
     """Runs the full FedAvg training loop and compares against centralized baseline.
 
@@ -395,41 +399,41 @@ class FederatedLearner:
     # Default Nordic SME node profiles
     DEFAULT_PROFILES: list[NodeProfile] = [
         NodeProfile(
-            node_id      = SMENode.SME_FI,
-            n_samples    = 800,
-            failure_rate = 0.12,
-            noise_std    = 0.3,
-            feature_shift= np.array([-0.2, 0.1, -0.1, 0.2, 0.0]),
-            country      = "FI",
-            industry     = "Paper mill — vibration-heavy humid environment",
+            node_id=SMENode.SME_FI,
+            n_samples=800,
+            failure_rate=0.12,
+            noise_std=0.3,
+            feature_shift=np.array([-0.2, 0.1, -0.1, 0.2, 0.0]),
+            country="FI",
+            industry="Paper mill — vibration-heavy humid environment",
         ),
         NodeProfile(
-            node_id      = SMENode.SME_SE,
-            n_samples    = 1200,
-            failure_rate = 0.08,
-            noise_std    = 0.2,
-            feature_shift= np.array([0.1, -0.2, 0.3, -0.1, 0.1]),
-            country      = "SE",
-            industry     = "Automotive stamping — high-cycle temperature extremes",
+            node_id=SMENode.SME_SE,
+            n_samples=1200,
+            failure_rate=0.08,
+            noise_std=0.2,
+            feature_shift=np.array([0.1, -0.2, 0.3, -0.1, 0.1]),
+            country="SE",
+            industry="Automotive stamping — high-cycle temperature extremes",
         ),
         NodeProfile(
-            node_id      = SMENode.SME_NO,
-            n_samples    = 600,
-            failure_rate = 0.18,
-            noise_std    = 0.4,
-            feature_shift= np.array([0.3, 0.2, -0.2, -0.3, 0.2]),
-            country      = "NO",
-            industry     = "Offshore pumps — corrosion-prone saltwater environment",
+            node_id=SMENode.SME_NO,
+            n_samples=600,
+            failure_rate=0.18,
+            noise_std=0.4,
+            feature_shift=np.array([0.3, 0.2, -0.2, -0.3, 0.2]),
+            country="NO",
+            industry="Offshore pumps — corrosion-prone saltwater environment",
         ),
     ]
 
     def __init__(
         self,
-        profiles:               list[NodeProfile] | None = None,
-        convergence_threshold:  float = 0.002,
-        random_state:           int = 42,
-        dp_epsilon:             float | None = None,
-        dp_delta:               float = 1e-5,
+        profiles: list[NodeProfile] | None = None,
+        convergence_threshold: float = 0.002,
+        random_state: int = 42,
+        dp_epsilon: float | None = None,
+        dp_delta: float = 1e-5,
     ) -> None:
         """
         Args:
@@ -440,15 +444,15 @@ class FederatedLearner:
                                    Lower = stronger privacy (recommended: 1.0–5.0).
             dp_delta:              DP failure probability δ (default 1e-5)
         """
-        self.profiles              = profiles or self.DEFAULT_PROFILES
+        self.profiles = profiles or self.DEFAULT_PROFILES
         self.convergence_threshold = convergence_threshold
-        self.random_state          = random_state
-        self.dp_epsilon            = dp_epsilon
-        self.dp_delta              = dp_delta
+        self.random_state = random_state
+        self.dp_epsilon = dp_epsilon
+        self.dp_delta = dp_delta
 
     def run(
         self,
-        n_rounds:     int = 10,
+        n_rounds: int = 10,
         local_epochs: int = 3,
     ) -> FederatedResult:
         """Execute federated training and compare to centralized baseline.
@@ -461,11 +465,14 @@ class FederatedLearner:
             FederatedResult with full metrics and comparison
         """
         experiment_id = str(uuid.uuid4())
-        logger.info("federated_experiment_start", extra={
-            "experiment_id": experiment_id,
-            "n_rounds": n_rounds,
-            "n_nodes": len(self.profiles),
-        })
+        logger.info(
+            "federated_experiment_start",
+            extra={
+                "experiment_id": experiment_id,
+                "n_rounds": n_rounds,
+                "n_nodes": len(self.profiles),
+            },
+        )
 
         # Initialise nodes
         nodes = [
@@ -479,7 +486,7 @@ class FederatedLearner:
         )
 
         rounds: list[RoundResult] = []
-        prev_f1    = 0.0
+        prev_f1 = 0.0
         converged_at: int | None = None
 
         for rnd in range(1, n_rounds + 1):
@@ -487,7 +494,7 @@ class FederatedLearner:
 
             # Each node trains locally
             node_params_list: list[dict[str, Any]] = []
-            node_f1s:  dict[str, float] = {}
+            node_f1s: dict[str, float] = {}
             node_losses: dict[str, float] = {}
 
             for node in nodes:
@@ -499,7 +506,7 @@ class FederatedLearner:
                 )
                 node_params_list.append(params)
                 f1, loss = node.evaluate()
-                node_f1s[node.profile.node_id.value]   = round(f1, 4)
+                node_f1s[node.profile.node_id.value] = round(f1, 4)
                 node_losses[node.profile.node_id.value] = round(loss, 4)
 
             # FedAvg aggregation
@@ -511,7 +518,7 @@ class FederatedLearner:
 
             # Convergence check
             improvement = abs(g_f1 - prev_f1)
-            converged   = improvement < self.convergence_threshold and rnd > 2
+            converged = improvement < self.convergence_threshold and rnd > 2
             if converged and converged_at is None:
                 converged_at = rnd
 
@@ -519,67 +526,76 @@ class FederatedLearner:
             comm_cost = len(nodes) * 5 * 4 * 2  # 5 features × float32 × 2 way
 
             rr = RoundResult(
-                round_number       = rnd,
-                global_f1          = round(g_f1, 4),
-                global_auc         = round(g_auc, 4),
-                node_f1s           = node_f1s,
-                node_losses        = node_losses,
-                communication_cost = comm_cost,
-                round_duration_s   = round(time.perf_counter() - t0, 3),
-                converged          = converged,
+                round_number=rnd,
+                global_f1=round(g_f1, 4),
+                global_auc=round(g_auc, 4),
+                node_f1s=node_f1s,
+                node_losses=node_losses,
+                communication_cost=comm_cost,
+                round_duration_s=round(time.perf_counter() - t0, 3),
+                converged=converged,
             )
             rounds.append(rr)
             prev_f1 = g_f1
 
-            logger.debug("federated_round", extra={
-                "round": rnd,
-                "global_f1": g_f1,
-                "global_auc": g_auc,
-                "converged": converged,
-            })
-
-            if converged:
-                logger.info("federated_converged", extra={
+            logger.debug(
+                "federated_round",
+                extra={
                     "round": rnd,
                     "global_f1": g_f1,
-                })
+                    "global_auc": g_auc,
+                    "converged": converged,
+                },
+            )
+
+            if converged:
+                logger.info(
+                    "federated_converged",
+                    extra={
+                        "round": rnd,
+                        "global_f1": g_f1,
+                    },
+                )
                 break
 
         # Centralized baseline: train on all data combined
         c_f1, c_auc = self._centralized_baseline(nodes)
 
-        final_f1  = rounds[-1].global_f1  if rounds else 0.0
+        final_f1 = rounds[-1].global_f1 if rounds else 0.0
         final_auc = rounds[-1].global_auc if rounds else 0.0
 
         result = FederatedResult(
-            experiment_id     = experiment_id,
-            rounds            = rounds,
-            final_global_f1   = final_f1,
-            final_global_auc  = final_auc,
-            centralized_f1    = round(c_f1, 4),
-            centralized_auc   = round(c_auc, 4),
-            federated_gap     = round(c_f1 - final_f1, 4),
-            privacy_preserved = True,
-            total_rounds      = len(rounds),
-            converged_at      = converged_at,
-            node_profiles     = {
+            experiment_id=experiment_id,
+            rounds=rounds,
+            final_global_f1=final_f1,
+            final_global_auc=final_auc,
+            centralized_f1=round(c_f1, 4),
+            centralized_auc=round(c_auc, 4),
+            federated_gap=round(c_f1 - final_f1, 4),
+            privacy_preserved=True,
+            total_rounds=len(rounds),
+            converged_at=converged_at,
+            node_profiles={
                 p.node_id.value: {
-                    "n_samples":   p.n_samples,
+                    "n_samples": p.n_samples,
                     "failure_rate": p.failure_rate,
-                    "country":     p.country,
-                    "industry":    p.industry,
+                    "country": p.country,
+                    "industry": p.industry,
                 }
                 for p in self.profiles
             },
         )
 
-        logger.info("federated_experiment_complete", extra={
-            "experiment_id":   experiment_id,
-            "final_f1":        final_f1,
-            "centralized_f1":  c_f1,
-            "federated_gap":   result.federated_gap,
-            "total_rounds":    len(rounds),
-        })
+        logger.info(
+            "federated_experiment_complete",
+            extra={
+                "experiment_id": experiment_id,
+                "final_f1": final_f1,
+                "centralized_f1": c_f1,
+                "federated_gap": result.federated_gap,
+                "total_rounds": len(rounds),
+            },
+        )
         return result
 
     @staticmethod
@@ -589,8 +605,8 @@ class FederatedLearner:
         y_all = np.concatenate([node.y for node in nodes])
 
         # 80/20 split
-        n     = len(y_all)
-        idx   = np.random.default_rng(42).permutation(n)
+        n = len(y_all)
+        idx = np.random.default_rng(42).permutation(n)
         split = int(n * 0.8)
         X_tr, X_te = X_all[idx[:split]], X_all[idx[split:]]
         y_tr, y_te = y_all[idx[:split]], y_all[idx[split:]]
@@ -600,7 +616,7 @@ class FederatedLearner:
 
         y_pred = model.predict(X_te)
         y_prob = model.predict_proba(X_te)[:, 1]
-        f1     = float(f1_score(y_te, y_pred, zero_division=0))
+        f1 = float(f1_score(y_te, y_pred, zero_division=0))
         try:
             auc = float(roc_auc_score(y_te, y_prob))
         except ValueError:

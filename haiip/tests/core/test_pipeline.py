@@ -1,6 +1,6 @@
 """Tests for data/ingestion/pipeline.py — IngestionPipeline."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -15,7 +15,7 @@ def reading() -> NormalisedReading:
     return NormalisedReading(
         machine_id="TEST-001",
         tenant_id="test",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         air_temperature=300.0,
         process_temperature=310.0,
         rotational_speed=1538.0,
@@ -43,6 +43,7 @@ def pipeline_with_model() -> IngestionPipeline:
 
 # ── NormalisedReading ─────────────────────────────────────────────────────────
 
+
 def test_feature_vector(reading):
     fv = reading.feature_vector
     assert len(fv) == 5
@@ -57,6 +58,7 @@ def test_to_dict(reading):
 
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
+
 
 def test_process_no_model(pipeline, reading):
     result = pipeline.process(reading)
@@ -75,7 +77,7 @@ def test_process_with_model_anomaly(pipeline_with_model):
     extreme_reading = NormalisedReading(
         machine_id="TEST-002",
         tenant_id="test",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         air_temperature=400.0,
         process_temperature=500.0,
         rotational_speed=9000.0,
@@ -99,7 +101,7 @@ def test_alert_callback_called(pipeline_with_model):
     extreme = NormalisedReading(
         machine_id="TEST-003",
         tenant_id="test",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         air_temperature=400.0,
         process_temperature=500.0,
         rotational_speed=9000.0,
@@ -113,13 +115,14 @@ def test_alert_callback_called(pipeline_with_model):
 
 def test_validate_clamps_values(pipeline):
     reading = NormalisedReading(
-        machine_id="X", tenant_id="t",
-        timestamp=datetime.now(timezone.utc),
-        air_temperature=9999.0,   # > 500
+        machine_id="X",
+        tenant_id="t",
+        timestamp=datetime.now(UTC),
+        air_temperature=9999.0,  # > 500
         process_temperature=-999.0,  # < -50
-        rotational_speed=-100.0,   # < 0
+        rotational_speed=-100.0,  # < 0
         torque=-50.0,
-        tool_wear=5000.0,          # > 1000
+        tool_wear=5000.0,  # > 1000
         source="test",
     )
     validated = pipeline._validate(reading)

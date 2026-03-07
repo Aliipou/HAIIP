@@ -12,8 +12,8 @@ GITOPS_ROOT = Path(__file__).parents[3] / "gitops"
 
 # ── ArgoCD application tests ──────────────────────────────────────────────────
 
-class TestArgoCDApplication:
 
+class TestArgoCDApplication:
     def _load_app(self, name: str) -> list[dict]:
         path = GITOPS_ROOT / "argocd" / "application.yaml"
         assert path.exists(), f"Missing: {path}"
@@ -68,8 +68,8 @@ class TestArgoCDApplication:
 
 # ── Kustomize overlay tests ───────────────────────────────────────────────────
 
-class TestKustomizeBase:
 
+class TestKustomizeBase:
     def _base_path(self) -> Path:
         return GITOPS_ROOT / "kustomize" / "base"
 
@@ -109,7 +109,6 @@ class TestKustomizeBase:
 
 
 class TestKustomizeOverlays:
-
     def _overlay(self, env: str) -> Path:
         return GITOPS_ROOT / "kustomize" / "overlays" / env
 
@@ -132,7 +131,7 @@ class TestKustomizeOverlays:
         doc = yaml.safe_load((self._overlay("dev") / "kustomization.yaml").read_text())
         generators = doc.get("configMapGenerator", [])
         literals = generators[0]["literals"] if generators else []
-        assert any("LOG_LEVEL=DEBUG" in l for l in literals)
+        assert any("LOG_LEVEL=DEBUG" in lit for lit in literals)
 
     def test_prod_has_three_api_replicas(self):
         doc = yaml.safe_load((self._overlay("prod") / "kustomization.yaml").read_text())

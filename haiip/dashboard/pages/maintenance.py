@@ -5,9 +5,15 @@ from __future__ import annotations
 import streamlit as st
 
 from haiip.dashboard.components.auth import api_post, is_demo
-from haiip.dashboard.components.charts import drift_heatmap, failure_mode_pie, rul_bar_chart
+from haiip.dashboard.components.charts import (
+    drift_heatmap,
+    failure_mode_pie,
+    rul_bar_chart,
+)
 from haiip.dashboard.components.demo_data import (
-    demo_drift_results, demo_predictions, demo_rul_per_machine,
+    demo_drift_results,
+    demo_predictions,
+    demo_rul_per_machine,
 )
 from haiip.dashboard.components.theme import badge, kpi_card, section_title
 
@@ -47,6 +53,7 @@ def render() -> None:
         col_l, col_r = st.columns([1, 1])
         with col_l:
             from collections import Counter
+
             counts = Counter(p.get("prediction_label", "no_failure") for p in predictions)
             labels = ["no_failure", "TWF", "HDF", "PWF", "OSF", "RNF"]
             display = ["No Failure", "TWF", "HDF", "PWF", "OSF", "RNF"]
@@ -74,11 +81,18 @@ def render() -> None:
         section_title("Recent Predictions")
         if predictions:
             import pandas as pd
+
             df = pd.DataFrame(predictions)
-            display_cols = ["machine_id", "prediction_label", "confidence",
-                            "rul_cycles", "human_verified", "created_at"]
+            display_cols = [
+                "machine_id",
+                "prediction_label",
+                "confidence",
+                "rul_cycles",
+                "human_verified",
+                "created_at",
+            ]
             df_display = df[[c for c in display_cols if c in df.columns]].copy()
-            df_display["confidence"] = df_display["confidence"].apply(lambda x: f"{x*100:.1f}%")
+            df_display["confidence"] = df_display["confidence"].apply(lambda x: f"{x * 100:.1f}%")
             df_display["human_verified"] = df_display["human_verified"].apply(
                 lambda x: "✅" if x else "⬜"
             )
@@ -92,12 +106,34 @@ def render() -> None:
         col_a, col_b = st.columns(2)
         with col_a:
             machine_id = st.text_input("Machine ID", value="CNC-001")
-            air_temp = st.number_input("Air Temperature (K)", value=300.0, min_value=250.0, max_value=400.0, step=0.1)
-            proc_temp = st.number_input("Process Temperature (K)", value=310.0, min_value=250.0, max_value=500.0, step=0.1)
+            air_temp = st.number_input(
+                "Air Temperature (K)",
+                value=300.0,
+                min_value=250.0,
+                max_value=400.0,
+                step=0.1,
+            )
+            proc_temp = st.number_input(
+                "Process Temperature (K)",
+                value=310.0,
+                min_value=250.0,
+                max_value=500.0,
+                step=0.1,
+            )
         with col_b:
-            rpm = st.number_input("Rotational Speed (RPM)", value=1538.0, min_value=0.0, max_value=5000.0, step=10.0)
-            torque = st.number_input("Torque (Nm)", value=40.0, min_value=0.0, max_value=200.0, step=0.5)
-            tool_wear = st.number_input("Tool Wear (min)", value=100.0, min_value=0.0, max_value=253.0, step=1.0)
+            rpm = st.number_input(
+                "Rotational Speed (RPM)",
+                value=1538.0,
+                min_value=0.0,
+                max_value=5000.0,
+                step=10.0,
+            )
+            torque = st.number_input(
+                "Torque (Nm)", value=40.0, min_value=0.0, max_value=200.0, step=0.5
+            )
+            tool_wear = st.number_input(
+                "Tool Wear (min)", value=100.0, min_value=0.0, max_value=253.0, step=1.0
+            )
 
         if st.button("🔍 Predict Failure Mode", use_container_width=True):
             _run_single_prediction(machine_id, air_temp, proc_temp, rpm, torque, tool_wear)
@@ -124,7 +160,11 @@ def render() -> None:
 
             d1, d2, d3 = st.columns(3)
             with d1:
-                kpi_card("Drifting Features", str(len(drifted)), delta_dir="up" if drifted else "neu")
+                kpi_card(
+                    "Drifting Features",
+                    str(len(drifted)),
+                    delta_dir="up" if drifted else "neu",
+                )
             with d2:
                 kpi_card("Monitoring", str(len(monitoring)))
             with d3:
@@ -136,31 +176,39 @@ def render() -> None:
                     "Consider triggering model retraining."
                 )
                 if st.button("🔄 Trigger Retraining"):
-                    st.info("Retraining task queued via Celery worker. Monitor progress in Audit Trail.")
+                    st.info(
+                        "Retraining task queued via Celery worker. Monitor progress in Audit Trail."
+                    )
         else:
             st.info("No drift data available. Run a drift check from the workers.")
 
 
 def _run_single_prediction(
     machine_id: str,
-    air_temp: float, proc_temp: float,
-    rpm: float, torque: float, tool_wear: float,
+    air_temp: float,
+    proc_temp: float,
+    rpm: float,
+    torque: float,
+    tool_wear: float,
 ) -> None:
     """Run prediction and display results."""
     if is_demo():
         from haiip.core.maintenance import MaintenancePredictor
+
         predictor = MaintenancePredictor()
         result_data = predictor.predict([air_temp, proc_temp, rpm, torque, tool_wear])
     else:
         payload = {
-            "readings": [{
-                "machine_id": machine_id,
-                "air_temperature": air_temp,
-                "process_temperature": proc_temp,
-                "rotational_speed": rpm,
-                "torque": torque,
-                "tool_wear": tool_wear,
-            }],
+            "readings": [
+                {
+                    "machine_id": machine_id,
+                    "air_temperature": air_temp,
+                    "process_temperature": proc_temp,
+                    "rotational_speed": rpm,
+                    "torque": torque,
+                    "tool_wear": tool_wear,
+                }
+            ],
             "model_type": "predictive_maintenance",
         }
         resp = api_post("/api/v1/predict/batch", payload)
@@ -180,9 +228,9 @@ def _run_single_prediction(
     with r1:
         st.markdown(f"**Failure Mode**<br>{badge(label, s)}", unsafe_allow_html=True)
     with r2:
-        kpi_card("Confidence", f"{confidence*100:.1f}%")
+        kpi_card("Confidence", f"{confidence * 100:.1f}%")
     with r3:
-        kpi_card("Failure Prob.", f"{fail_prob*100:.1f}%")
+        kpi_card("Failure Prob.", f"{fail_prob * 100:.1f}%")
     with r4:
         kpi_card("RUL", f"{rul} cycles" if rul is not None else "N/A")
 
@@ -198,8 +246,8 @@ def _run_single_prediction(
 
     if label != "no_failure":
         st.error(
-            f"⚠️ **{label} failure predicted** with {confidence*100:.1f}% confidence. "
+            f"⚠️ **{label} failure predicted** with {confidence * 100:.1f}% confidence. "
             "Schedule maintenance immediately."
         )
     else:
-        st.success(f"✅ Machine operating normally. Confidence: {confidence*100:.1f}%")
+        st.success(f"✅ Machine operating normally. Confidence: {confidence * 100:.1f}%")

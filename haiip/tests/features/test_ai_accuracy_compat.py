@@ -14,41 +14,41 @@ If any test fails, the model or pipeline is not production-ready.
 
 from __future__ import annotations
 
-import io
-import pickle
-import tempfile
-from pathlib import Path
-
 import numpy as np
 import pytest
 
-
 # ── Shared fixtures ───────────────────────────────────────────────────────────
+
 
 def make_balanced_dataset(n_normal: int = 300, n_anomaly: int = 30, seed: int = 42):
     """Generate a balanced train/test dataset."""
     rng = np.random.RandomState(seed)
 
-    normal_X = np.column_stack([
-        rng.normal(298.0, 2.0, n_normal),
-        rng.normal(308.0, 1.5, n_normal),
-        rng.normal(1500, 50, n_normal),
-        rng.normal(40.0, 3.0, n_normal),
-        rng.uniform(0, 50, n_normal),
-    ])
+    normal_X = np.column_stack(
+        [
+            rng.normal(298.0, 2.0, n_normal),
+            rng.normal(308.0, 1.5, n_normal),
+            rng.normal(1500, 50, n_normal),
+            rng.normal(40.0, 3.0, n_normal),
+            rng.uniform(0, 50, n_normal),
+        ]
+    )
 
-    anomaly_X = np.column_stack([
-        rng.normal(340.0, 5.0, n_anomaly),
-        rng.normal(355.0, 4.0, n_anomaly),
-        rng.normal(2200, 100, n_anomaly),
-        rng.normal(70.0, 8.0, n_anomaly),
-        rng.uniform(200, 250, n_anomaly),
-    ])
+    anomaly_X = np.column_stack(
+        [
+            rng.normal(340.0, 5.0, n_anomaly),
+            rng.normal(355.0, 4.0, n_anomaly),
+            rng.normal(2200, 100, n_anomaly),
+            rng.normal(70.0, 8.0, n_anomaly),
+            rng.uniform(200, 250, n_anomaly),
+        ]
+    )
 
     return normal_X, anomaly_X
 
 
 # ── Accuracy Tests ────────────────────────────────────────────────────────────
+
 
 class TestAnomalyDetectorAccuracy:
     """Verify anomaly detector meets declared accuracy thresholds."""
@@ -56,6 +56,7 @@ class TestAnomalyDetectorAccuracy:
     @pytest.fixture
     def trained(self):
         from haiip.core.anomaly import AnomalyDetector
+
         normal_X, _ = make_balanced_dataset()
         detector = AnomalyDetector(contamination=0.05, random_state=42)
         detector.fit(normal_X.tolist())
@@ -108,7 +109,7 @@ class TestMaintenancePredictorAccuracy:
         rng = np.random.RandomState(42)
         X, y_failure, y_rul = [], [], []
 
-        for i in range(500):
+        for _i in range(500):
             wear = rng.uniform(0, 240)
             temp = rng.normal(298.0 + wear * 0.2, 2.0)
             speed = rng.normal(1500, 100)
@@ -135,8 +136,13 @@ class TestMaintenancePredictorAccuracy:
         """Accuracy on clear no-failure samples must be ≥ 80%."""
         rng = np.random.RandomState(300)
         clear_normal = [
-            [rng.normal(298, 1), rng.normal(308, 1), rng.normal(1500, 30),
-             rng.normal(40, 2), rng.uniform(0, 30)]
+            [
+                rng.normal(298, 1),
+                rng.normal(308, 1),
+                rng.normal(1500, 30),
+                rng.normal(40, 2),
+                rng.uniform(0, 30),
+            ]
             for _ in range(50)
         ]
         results = [trained.predict(s) for s in clear_normal]
@@ -172,6 +178,7 @@ class TestMaintenancePredictorAccuracy:
 
 
 # ── Serialization Compatibility ───────────────────────────────────────────────
+
 
 class TestModelSerialization:
     """Verify models can be saved and loaded (joblib/pickle compatibility)."""
@@ -230,11 +237,12 @@ class TestModelSerialization:
         detector.fit(data)
 
         # Wrong number of features
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             detector.predict([1.0, 2.0])  # only 2 features instead of 5
 
 
 # ── Data Type Compatibility ───────────────────────────────────────────────────
+
 
 class TestDataTypeCompatibility:
     """Verify ML engines handle various numeric types correctly."""
@@ -242,6 +250,7 @@ class TestDataTypeCompatibility:
     @pytest.fixture
     def trained_detector(self):
         from haiip.core.anomaly import AnomalyDetector
+
         rng = np.random.RandomState(42)
         data = rng.normal(298.0, 2.0, (100, 5)).tolist()
         d = AnomalyDetector(random_state=42)
@@ -267,10 +276,12 @@ class TestDataTypeCompatibility:
         assert "label" in result
 
     def test_batch_accepts_2d_numpy_array(self, trained_detector):
-        batch = np.array([
-            [298.0, 308.0, 1500.0, 40.0, 5.0],
-            [310.0, 320.0, 1800.0, 55.0, 150.0],
-        ])
+        batch = np.array(
+            [
+                [298.0, 308.0, 1500.0, 40.0, 5.0],
+                [310.0, 320.0, 1800.0, 55.0, 150.0],
+            ]
+        )
         results = trained_detector.predict_batch(batch)
         assert len(results) == 2
 
@@ -285,6 +296,7 @@ class TestDataTypeCompatibility:
 
 # ── Pipeline Compatibility ────────────────────────────────────────────────────
 
+
 class TestPipelineCompatibility:
     """Test ingestion → ML pipeline compatibility."""
 
@@ -298,13 +310,19 @@ class TestPipelineCompatibility:
         batch = simulator.batch(n=100)
 
         # Extract features from simulator readings
-        feature_keys = ["air_temperature", "process_temperature",
-                        "rotational_speed", "torque", "tool_wear"]
+        feature_keys = [
+            "air_temperature",
+            "process_temperature",
+            "rotational_speed",
+            "torque",
+            "tool_wear",
+        ]
         X = []
         for reading in batch:
             features = reading.get("features", reading)
-            row = [float(features.get(k, features.get(k.replace("_", " "), 0.0)))
-                   for k in feature_keys]
+            row = [
+                float(features.get(k, features.get(k.replace("_", " "), 0.0))) for k in feature_keys
+            ]
             if len(row) == 5:
                 X.append(row)
 
@@ -360,13 +378,12 @@ class TestPipelineCompatibility:
 
 # ── Schema Compatibility ──────────────────────────────────────────────────────
 
+
 class TestAPISchemaCompatibility:
     """Test API request/response schema compatibility."""
 
     @pytest.mark.asyncio
-    async def test_predict_response_has_expected_fields(
-        self, client, admin_headers
-    ):
+    async def test_predict_response_has_expected_fields(self, client, admin_headers):
         """Prediction response must include required fields for dashboard."""
         resp = await client.post(
             "/api/v1/predict",
@@ -391,9 +408,7 @@ class TestAPISchemaCompatibility:
             assert 0.0 <= data["confidence"] <= 1.0
 
     @pytest.mark.asyncio
-    async def test_alert_response_has_expected_fields(
-        self, client, admin_headers
-    ):
+    async def test_alert_response_has_expected_fields(self, client, admin_headers):
         """Alert response must include fields for dashboard rendering."""
         resp = await client.post(
             "/api/v1/alerts",
@@ -424,9 +439,7 @@ class TestAPISchemaCompatibility:
         assert isinstance(data.get("version"), str)
 
     @pytest.mark.asyncio
-    async def test_auth_me_returns_user_schema(
-        self, client, admin_headers, test_admin
-    ):
+    async def test_auth_me_returns_user_schema(self, client, admin_headers, test_admin):
         """GET /auth/me must return user fields required by dashboard."""
         resp = await client.get("/api/v1/auth/me", headers=admin_headers)
         assert resp.status_code == 200

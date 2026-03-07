@@ -12,8 +12,6 @@ Rules:
 
 from __future__ import annotations
 
-import pytest
-
 from haiip.core.oversight_simulation import (
     ASSUMPTION_METADATA,
     LOW_CONFIDENCE_ASSUMPTIONS,
@@ -21,17 +19,15 @@ from haiip.core.oversight_simulation import (
     OperatorProfile,
     OperatorRole,
     OperatorSimulationModel,
-    OversightReport,
     generate_oversight_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # Assumption documentation tests
 # ---------------------------------------------------------------------------
 
-class TestAssumptionDocumentation:
 
+class TestAssumptionDocumentation:
     def test_all_assumptions_have_citations(self):
         """Every assumption entry in ASSUMPTION_METADATA has a non-empty 'source' field."""
         for name, meta in ASSUMPTION_METADATA.items():
@@ -78,13 +74,18 @@ class TestAssumptionDocumentation:
 # Oversight report properties
 # ---------------------------------------------------------------------------
 
-class TestOversightReportProperties:
 
+class TestOversightReportProperties:
     def test_oversight_report_always_includes_confidence_level(self):
         """generate_oversight_report() always sets simulation_confidence."""
         report = generate_oversight_report(
-            hir=0.10, hog=0.03, tcs=0.82, ece=0.08,
-            n_events=100, n_reviewed=10, n_overridden=3,
+            hir=0.10,
+            hog=0.03,
+            tcs=0.82,
+            ece=0.08,
+            n_events=100,
+            n_reviewed=10,
+            n_overridden=3,
         )
         assert report.simulation_confidence is not None
         assert len(report.simulation_confidence) > 0
@@ -92,8 +93,13 @@ class TestOversightReportProperties:
     def test_oversight_report_simulation_confidence_is_low(self):
         """simulation_confidence is hardcoded 'LOW' until field study runs."""
         report = generate_oversight_report(
-            hir=0.10, hog=0.05, tcs=0.85, ece=0.05,
-            n_events=200, n_reviewed=20, n_overridden=5,
+            hir=0.10,
+            hog=0.05,
+            tcs=0.85,
+            ece=0.05,
+            n_events=200,
+            n_reviewed=20,
+            n_overridden=5,
         )
         assert report.simulation_confidence == "LOW", (
             "simulation_confidence must be 'LOW' until a field study validates the assumptions"
@@ -102,16 +108,26 @@ class TestOversightReportProperties:
     def test_oversight_report_field_study_required_is_true(self):
         """field_study_required is always True until real operator data is collected."""
         report = generate_oversight_report(
-            hir=0.10, hog=0.03, tcs=0.80, ece=0.10,
-            n_events=50, n_reviewed=5, n_overridden=1,
+            hir=0.10,
+            hog=0.03,
+            tcs=0.80,
+            ece=0.10,
+            n_events=50,
+            n_reviewed=5,
+            n_overridden=1,
         )
         assert report.field_study_required is True
 
     def test_oversight_report_includes_low_confidence_list(self):
         """OversightReport.low_confidence_assumptions is a non-empty list."""
         report = generate_oversight_report(
-            hir=0.10, hog=0.03, tcs=0.82, ece=0.08,
-            n_events=100, n_reviewed=10, n_overridden=3,
+            hir=0.10,
+            hog=0.03,
+            tcs=0.82,
+            ece=0.08,
+            n_events=100,
+            n_reviewed=10,
+            n_overridden=3,
         )
         assert isinstance(report.low_confidence_assumptions, list)
         assert len(report.low_confidence_assumptions) > 0
@@ -119,8 +135,13 @@ class TestOversightReportProperties:
     def test_oversight_report_to_dict_includes_warning(self):
         """to_dict() includes a warning key alerting consumers."""
         report = generate_oversight_report(
-            hir=0.10, hog=0.03, tcs=0.82, ece=0.08,
-            n_events=100, n_reviewed=10, n_overridden=3,
+            hir=0.10,
+            hog=0.03,
+            tcs=0.82,
+            ece=0.08,
+            n_events=100,
+            n_reviewed=10,
+            n_overridden=3,
         )
         d = report.to_dict()
         assert "warning" in d
@@ -129,10 +150,16 @@ class TestOversightReportProperties:
     def test_warning_logged_when_low_confidence_assumptions_used(self, caplog):
         """generate_oversight_report() emits a warning log for low-confidence assumptions."""
         import logging
+
         with caplog.at_level(logging.WARNING):
             generate_oversight_report(
-                hir=0.10, hog=0.03, tcs=0.82, ece=0.08,
-                n_events=100, n_reviewed=10, n_overridden=3,
+                hir=0.10,
+                hog=0.03,
+                tcs=0.82,
+                ece=0.08,
+                n_events=100,
+                n_reviewed=10,
+                n_overridden=3,
             )
         # At least one warning should reference low confidence
         warning_texts = " ".join(caplog.messages)
@@ -146,8 +173,8 @@ class TestOversightReportProperties:
 # Behavioural tests
 # ---------------------------------------------------------------------------
 
-class TestOperatorBehaviour:
 
+class TestOperatorBehaviour:
     def _make_alert(self, is_tp: bool = True, has_explanation: bool = False) -> AlertStub:
         return AlertStub(
             alert_id="alert-001",
@@ -187,10 +214,10 @@ class TestOperatorBehaviour:
     def test_fatigue_reduces_acceptance_rate(self):
         """Alert acceptance rate at shift_hour=8 < rate at shift_hour=0."""
         expert_profile = OperatorProfile(role=OperatorRole.EXPERT, experience_years=8.0)
-        alert          = self._make_alert()
+        alert = self._make_alert()
 
-        fresh_accepts  = 0
-        tired_accepts  = 0
+        fresh_accepts = 0
+        tired_accepts = 0
         n = 500
 
         for seed in range(n):
@@ -211,9 +238,9 @@ class TestOperatorBehaviour:
     def test_false_positive_history_reduces_trust(self):
         """Prior false positives reduce alert acceptance rate."""
         expert_profile = OperatorProfile(role=OperatorRole.EXPERT, experience_years=8.0)
-        alert          = self._make_alert()
+        alert = self._make_alert()
 
-        no_fp_accepts  = 0
+        no_fp_accepts = 0
         many_fp_accepts = 0
         n = 500
 
@@ -225,7 +252,7 @@ class TestOperatorBehaviour:
             if m2.simulate_operator_decision(alert, expert_profile, 0, 10).decision == "accept":
                 many_fp_accepts += 1
 
-        no_fp_rate   = no_fp_accepts / n
+        no_fp_rate = no_fp_accepts / n
         many_fp_rate = many_fp_accepts / n
 
         assert no_fp_rate > many_fp_rate, (
@@ -235,22 +262,28 @@ class TestOperatorBehaviour:
     def test_explanation_boost_increases_acceptance_rate(self):
         """Showing explanation increases acceptance rate (ASSUMPTION_EXPLANATION_BOOST > 0)."""
         expert_profile = OperatorProfile(role=OperatorRole.EXPERT, experience_years=8.0)
-        alert_no_exp   = self._make_alert(has_explanation=False)
+        alert_no_exp = self._make_alert(has_explanation=False)
         alert_with_exp = self._make_alert(has_explanation=True)
 
-        no_exp_accepts  = 0
+        no_exp_accepts = 0
         with_exp_accepts = 0
         n = 500
 
         for seed in range(n):
             m = OperatorSimulationModel(seed=seed)
-            if m.simulate_operator_decision(alert_no_exp,  expert_profile, 0, 0).decision == "accept":
+            if (
+                m.simulate_operator_decision(alert_no_exp, expert_profile, 0, 0).decision
+                == "accept"
+            ):
                 no_exp_accepts += 1
             m2 = OperatorSimulationModel(seed=seed)
-            if m2.simulate_operator_decision(alert_with_exp, expert_profile, 0, 0).decision == "accept":
+            if (
+                m2.simulate_operator_decision(alert_with_exp, expert_profile, 0, 0).decision
+                == "accept"
+            ):
                 with_exp_accepts += 1
 
-        no_exp_rate  = no_exp_accepts / n
+        no_exp_rate = no_exp_accepts / n
         with_exp_rate = with_exp_accepts / n
 
         # Note: ASSUMPTION_EXPLANATION_BOOST = 0.08 (CONFIDENCE: NONE)
@@ -263,7 +296,7 @@ class TestOperatorBehaviour:
     def test_simulation_is_deterministic_given_seed(self):
         """Same seed produces identical simulation results."""
         profile = OperatorProfile(role=OperatorRole.EXPERT, experience_years=5.0)
-        alert   = self._make_alert()
+        alert = self._make_alert()
 
         m1 = OperatorSimulationModel(seed=123)
         m2 = OperatorSimulationModel(seed=123)
@@ -277,7 +310,7 @@ class TestOperatorBehaviour:
     def test_different_seeds_can_produce_different_results(self):
         """Different seeds can produce different decisions (simulation is stochastic)."""
         profile = OperatorProfile(role=OperatorRole.NOVICE, experience_years=0.5)
-        alert   = self._make_alert()
+        alert = self._make_alert()
 
         decisions = set()
         for seed in range(20):
@@ -291,7 +324,7 @@ class TestOperatorBehaviour:
 
     def test_get_confidence_report_returns_all_assumptions(self):
         """get_confidence_report() returns an entry for every assumption in ASSUMPTION_METADATA."""
-        model  = OperatorSimulationModel()
+        model = OperatorSimulationModel()
         report = model.get_confidence_report()
         for name in ASSUMPTION_METADATA:
             assert name in report, f"Missing assumption in confidence report: {name}"

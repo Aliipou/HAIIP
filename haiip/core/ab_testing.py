@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ModelVariant:
     name: str
@@ -85,6 +86,7 @@ class ABTestResult:
 
 
 # ── Engine ────────────────────────────────────────────────────────────────────
+
 
 class ABTestingEngine:
     """Traffic-splitting A/B testing engine for ML model variants.
@@ -159,9 +161,7 @@ class ABTestingEngine:
 
         n_a, n_b = va.sample_count, vb.sample_count
         mean_a, mean_b = va.mean, vb.mean
-        relative_improvement = (
-            (mean_b - mean_a) / mean_a if mean_a != 0 else 0.0
-        )
+        relative_improvement = (mean_b - mean_a) / mean_a if mean_a != 0 else 0.0
 
         # Minimum sample check
         if n_a < self.min_samples or n_b < self.min_samples:
@@ -193,8 +193,14 @@ class ABTestingEngine:
             winner = None
 
         recommendation = self._make_recommendation(
-            variant_a, variant_b, mean_a, mean_b,
-            relative_improvement, p_value, is_significant, winner,
+            variant_a,
+            variant_b,
+            mean_a,
+            mean_b,
+            relative_improvement,
+            p_value,
+            is_significant,
+            winner,
         )
 
         return ABTestResult(
@@ -243,6 +249,7 @@ class ABTestingEngine:
         """
         try:
             from scipy.stats import mannwhitneyu  # type: ignore[import]
+
             _, p = mannwhitneyu(a, b, alternative="two-sided")
             return float(p)
         except ImportError:
@@ -282,9 +289,10 @@ class ABTestingEngine:
     def _normal_cdf(x: float) -> float:
         """Standard normal CDF via Abramowitz & Stegun approximation."""
         t = 1 / (1 + 0.2316419 * x)
-        poly = t * (0.319381530 + t * (
-            -0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))
-        ))
+        poly = t * (
+            0.319381530
+            + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))
+        )
         return 1 - (1 / math.sqrt(2 * math.pi)) * math.exp(-0.5 * x * x) * poly
 
     @staticmethod

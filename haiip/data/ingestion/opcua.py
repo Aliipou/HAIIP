@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ DEFAULT_NODE_IDS = {
 @dataclass
 class OPCUAReading:
     """Normalised sensor reading from OPC UA."""
+
     machine_id: str
     timestamp: datetime
     air_temperature: float
@@ -116,7 +118,7 @@ class OPCUAConnector:
             self._connected = False
             logger.info("OPC UA disconnected: %s", self.endpoint)
 
-    async def __aenter__(self) -> "OPCUAConnector":
+    async def __aenter__(self) -> OPCUAConnector:
         await self.connect()
         return self
 
@@ -136,7 +138,7 @@ class OPCUAConnector:
 
             return OPCUAReading(
                 machine_id=self.machine_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 air_temperature=values.get("air_temperature", 0.0),
                 process_temperature=values.get("process_temperature", 0.0),
                 rotational_speed=values.get("rotational_speed", 0.0),
@@ -215,23 +217,18 @@ class SimulatedOPCUAServer:
 
     async def _update_loop(self) -> None:
         import numpy as np
+
         rng = np.random.default_rng(42)
         wear = 0.0
 
         while self._running:
             wear = min(wear + 0.5, 253.0)
-            await self._nodes["air_temperature"].write_value(
-                float(rng.normal(300.0, 2.0))
-            )
-            await self._nodes["process_temperature"].write_value(
-                float(rng.normal(310.0, 1.5))
-            )
+            await self._nodes["air_temperature"].write_value(float(rng.normal(300.0, 2.0)))
+            await self._nodes["process_temperature"].write_value(float(rng.normal(310.0, 1.5)))
             await self._nodes["rotational_speed"].write_value(
                 float(max(0, rng.normal(1538.0, 179.0)))
             )
-            await self._nodes["torque"].write_value(
-                float(max(0, rng.normal(40.0, 9.8)))
-            )
+            await self._nodes["torque"].write_value(float(max(0, rng.normal(40.0, 9.8))))
             await self._nodes["tool_wear"].write_value(wear)
             await asyncio.sleep(1.0)
 

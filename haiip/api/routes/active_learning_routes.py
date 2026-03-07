@@ -11,11 +11,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from haiip.api.deps import CurrentUser
-from haiip.core.active_learning import ActiveLearningSampler, LabelingQueue, STRATEGIES
+from haiip.core.active_learning import STRATEGIES, ActiveLearningSampler, LabelingQueue
 
 router = APIRouter(prefix="/active-learning", tags=["Active Learning"])
 
@@ -30,6 +30,7 @@ def _get_queue(tenant_id: str) -> LabelingQueue:
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
+
 
 class PredictionInput(BaseModel):
     label: str
@@ -76,6 +77,7 @@ class DrainResponse(BaseModel):
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/select",

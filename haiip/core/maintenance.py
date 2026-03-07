@@ -76,8 +76,8 @@ class MaintenancePredictor:
         )
         self._is_fitted = False
         self._classes: list[str] = FAILURE_MODES
-        self._shap_clf_explainer: Any = None   # lazy-loaded after fit()
-        self._shap_rul_explainer: Any = None   # lazy-loaded after fit()
+        self._shap_clf_explainer: Any = None  # lazy-loaded after fit()
+        self._shap_rul_explainer: Any = None  # lazy-loaded after fit()
 
     # ── Training ──────────────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ class MaintenancePredictor:
         X: np.ndarray,
         y_class: np.ndarray,
         y_rul: np.ndarray | None = None,
-    ) -> "MaintenancePredictor":
+    ) -> MaintenancePredictor:
         """Fit the classifier (and optionally the RUL regressor).
 
         Args:
@@ -124,7 +124,7 @@ class MaintenancePredictor:
         feature_cols: list[str] | None = None,
         label_col: str = "failure_type",
         rul_col: str | None = None,
-    ) -> "MaintenancePredictor":
+    ) -> MaintenancePredictor:
         """Convenience: fit from pandas DataFrame."""
         import pandas as pd
 
@@ -183,8 +183,7 @@ class MaintenancePredictor:
             "failure_probability": round(failure_proba, 4),
             "rul_cycles": rul_cycles,
             "class_probabilities": {
-                cls: round(float(p), 4)
-                for cls, p in zip(self._classes, proba)
+                cls: round(float(p), 4) for cls, p in zip(self._classes, proba)
             },
             "explanation": {
                 "top_features": top_features,
@@ -212,24 +211,28 @@ class MaintenancePredictor:
             pred_idx = int(np.argmax(proba))
             pred_label = self._classes[pred_idx]
             normal_idx = self._classes.index("no_failure") if "no_failure" in self._classes else -1
-            failure_proba = 1.0 - float(proba[normal_idx]) if normal_idx >= 0 else float(proba[pred_idx])
+            failure_proba = (
+                1.0 - float(proba[normal_idx]) if normal_idx >= 0 else float(proba[pred_idx])
+            )
 
-            results.append({
-                "label": pred_label,
-                "confidence": round(float(proba[pred_idx]), 4),
-                "failure_probability": round(failure_proba, 4),
-                "rul_cycles": None,
-                "explanation": {
-                    "top_features": {
-                        name: round(float(imp), 4)
-                        for name, imp in sorted(
-                            zip(self.feature_names, importances),
-                            key=lambda x: x[1],
-                            reverse=True,
-                        )[:3]
-                    }
-                },
-            })
+            results.append(
+                {
+                    "label": pred_label,
+                    "confidence": round(float(proba[pred_idx]), 4),
+                    "failure_probability": round(failure_proba, 4),
+                    "rul_cycles": None,
+                    "explanation": {
+                        "top_features": {
+                            name: round(float(imp), 4)
+                            for name, imp in sorted(
+                                zip(self.feature_names, importances),
+                                key=lambda x: x[1],
+                                reverse=True,
+                            )[:3]
+                        }
+                    },
+                }
+            )
         return results
 
     # ── Persistence ───────────────────────────────────────────────────────────
@@ -249,7 +252,7 @@ class MaintenancePredictor:
         logger.info("MaintenancePredictor saved to %s", path)
 
     @classmethod
-    def load(cls, path: Path | str) -> "MaintenancePredictor":
+    def load(cls, path: Path | str) -> MaintenancePredictor:
         import joblib
 
         path = Path(path)
@@ -277,6 +280,7 @@ class MaintenancePredictor:
         """Lazily build SHAP TreeExplainers for classifier (and RUL regressor if fitted)."""
         try:
             import shap  # type: ignore[import]
+
             self._shap_clf_explainer = shap.TreeExplainer(self._classifier)
             if hasattr(self, "_rul_fitted") and self._rul_fitted:
                 self._shap_rul_explainer = shap.TreeExplainer(self._rul_regressor)
@@ -303,10 +307,7 @@ class MaintenancePredictor:
                 class_sv = sv[0, pred_class_idx, :]
             else:
                 return None
-            return {
-                name: round(float(val), 4)
-                for name, val in zip(self.feature_names, class_sv)
-            }
+            return {name: round(float(val), 4) for name, val in zip(self.feature_names, class_sv)}
         except Exception as exc:  # noqa: BLE001
             logger.debug("SHAP clf inference failed: %s", exc)
             return None
@@ -321,10 +322,7 @@ class MaintenancePredictor:
             return None
         try:
             sv = self._shap_rul_explainer.shap_values(arr_scaled, check_additivity=False)
-            return {
-                name: round(float(val), 4)
-                for name, val in zip(self.feature_names, sv[0])
-            }
+            return {name: round(float(val), 4) for name, val in zip(self.feature_names, sv[0])}
         except Exception as exc:  # noqa: BLE001
             logger.debug("SHAP RUL inference failed: %s", exc)
             return None

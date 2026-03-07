@@ -1,8 +1,5 @@
 """Tests for dashboard chart components (unit-level, no Streamlit runtime)."""
 
-import numpy as np
-import pytest
-
 from haiip.dashboard.components.charts import COLORS, PLOT_LAYOUT
 
 

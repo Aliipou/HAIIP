@@ -24,8 +24,8 @@ ROOT = Path(__file__).parent.parent.parent  # D:/HAIIP
 # RESULTS.md integrity
 # ---------------------------------------------------------------------------
 
-class TestResultsIntegrity:
 
+class TestResultsIntegrity:
     def test_results_md_exists(self):
         """docs/RESULTS.md must exist."""
         assert (ROOT / "docs" / "RESULTS.md").is_file(), (
@@ -41,16 +41,15 @@ class TestResultsIntegrity:
         if not results_path.exists():
             pytest.skip("docs/RESULTS.md does not exist")
 
-        text          = results_path.read_text(encoding="utf-8")
-        pending_lines = [l for l in text.splitlines() if "*(pending)*" in l.lower()]
-        violations    = []
+        text = results_path.read_text(encoding="utf-8")
+        pending_lines = [line for line in text.splitlines() if "*(pending)*" in line.lower()]
+        violations = []
         for line in pending_lines:
             if re.search(r"\d+\.\d+", line):
                 violations.append(line.strip())
 
         assert not violations, (
-            "Pending results must not contain numbers. "
-            f"Violating lines:\n" + "\n".join(violations)
+            "Pending results must not contain numbers. Violating lines:\n" + "\n".join(violations)
         )
 
     def test_results_md_has_environment_section(self):
@@ -81,8 +80,8 @@ class TestResultsIntegrity:
 # README integrity
 # ---------------------------------------------------------------------------
 
-class TestREADMEIntegrity:
 
+class TestREADMEIntegrity:
     def test_readme_exists(self):
         """README.md must exist."""
         assert (ROOT / "README.md").is_file()
@@ -124,8 +123,8 @@ class TestREADMEIntegrity:
 # Simulation flag consistency
 # ---------------------------------------------------------------------------
 
-class TestSimulationFlagConsistency:
 
+class TestSimulationFlagConsistency:
     def test_oversight_simulation_has_low_confidence_flag(self):
         """oversight_simulation.py hardcodes simulation_confidence='LOW'."""
         sim_path = ROOT / "haiip" / "core" / "oversight_simulation.py"
@@ -143,9 +142,7 @@ class TestSimulationFlagConsistency:
         assert "field_study_required" in text, (
             "oversight_simulation.py must include field_study_required field"
         )
-        assert "True" in text, (
-            "oversight_simulation.py must set field_study_required=True"
-        )
+        assert "True" in text, "oversight_simulation.py must set field_study_required=True"
 
     def test_economic_calibration_has_calibrated_flag(self):
         """economic_calibration.py has a 'calibrated' field defaulting to False."""
@@ -192,14 +189,10 @@ class TestSimulationFlagConsistency:
             for word in forbidden:
                 if word.lower() in text.lower():
                     lines = [
-                        f"  line {i+1}: {line.strip()}"
+                        f"  line {i + 1}: {line.strip()}"
                         for i, line in enumerate(text.splitlines())
                         if word.lower() in line.lower()
                     ]
-                    violations.extend(
-                        [f"{py_file.name}: '{word}' found"] + lines[:3]
-                    )
+                    violations.extend([f"{py_file.name}: '{word}' found"] + lines[:3])
 
-        assert not violations, (
-            "Forbidden words found in haiip/core/:\n" + "\n".join(violations)
-        )
+        assert not violations, "Forbidden words found in haiip/core/:\n" + "\n".join(violations)

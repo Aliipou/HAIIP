@@ -30,9 +30,10 @@ import functools
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class CircuitBreakerStats:
     total_calls: int = 0
     successful_calls: int = 0
     failed_calls: int = 0
-    rejected_calls: int = 0        # fast-failed while OPEN
+    rejected_calls: int = 0  # fast-failed while OPEN
     state_transitions: int = 0
     last_failure_time: float = 0.0
     last_success_time: float = 0.0
@@ -108,15 +109,17 @@ class CircuitBreaker:
 
     def call(self, func: F) -> F:
         """Decorator — wrap a function with circuit breaker protection."""
+
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             return self._execute(func, *args, **kwargs)
+
         return wrapper  # type: ignore[return-value]
 
     def __call__(self, func: F) -> F:
         return self.call(func)
 
-    def __enter__(self) -> "CircuitBreaker":
+    def __enter__(self) -> CircuitBreaker:
         self._before_call()
         return self
 
@@ -146,7 +149,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exceptions as exc:
+        except self.expected_exceptions:
             self._on_failure()
             raise
 
@@ -203,14 +206,18 @@ class CircuitBreaker:
                 self._notify(old, CircuitState.OPEN)
                 logger.warning("CircuitBreaker[%s]: HALF_OPEN → OPEN (probe failed)", self.name)
 
-            elif self._state == CircuitState.CLOSED and self._failure_count >= self.failure_threshold:
+            elif (
+                self._state == CircuitState.CLOSED and self._failure_count >= self.failure_threshold
+            ):
                 old = self._state
                 self._state = CircuitState.OPEN
                 self._stats.state_transitions += 1
                 self._notify(old, CircuitState.OPEN)
                 logger.error(
                     "CircuitBreaker[%s]: CLOSED → OPEN (failures=%d >= threshold=%d)",
-                    self.name, self._failure_count, self.failure_threshold,
+                    self.name,
+                    self._failure_count,
+                    self.failure_threshold,
                 )
 
     def _notify(self, old: CircuitState, new: CircuitState) -> None:
@@ -224,14 +231,14 @@ class CircuitBreaker:
 class CircuitBreakerRegistry:
     """Global registry of named circuit breakers — singleton per process."""
 
-    _instance: "CircuitBreakerRegistry | None" = None
+    _instance: CircuitBreakerRegistry | None = None
     _lock = threading.Lock()
 
     def __init__(self) -> None:
         self._breakers: dict[str, CircuitBreaker] = {}
 
     @classmethod
-    def get(cls) -> "CircuitBreakerRegistry":
+    def get(cls) -> CircuitBreakerRegistry:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -270,11 +277,18 @@ class CircuitBreakerRegistry:
 def get_db_breaker() -> CircuitBreaker:
     return CircuitBreakerRegistry.get().register("db", failure_threshold=3, recovery_timeout=10.0)
 
+
 def get_redis_breaker() -> CircuitBreaker:
-    return CircuitBreakerRegistry.get().register("redis", failure_threshold=5, recovery_timeout=15.0)
+    return CircuitBreakerRegistry.get().register(
+        "redis", failure_threshold=5, recovery_timeout=15.0
+    )
+
 
 def get_llm_breaker() -> CircuitBreaker:
     return CircuitBreakerRegistry.get().register("llm", failure_threshold=3, recovery_timeout=60.0)
 
+
 def get_opcua_breaker() -> CircuitBreaker:
-    return CircuitBreakerRegistry.get().register("opcua", failure_threshold=5, recovery_timeout=30.0)
+    return CircuitBreakerRegistry.get().register(
+        "opcua", failure_threshold=5, recovery_timeout=30.0
+    )

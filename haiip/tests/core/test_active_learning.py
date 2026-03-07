@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 
 from haiip.core.active_learning import (
+    STRATEGIES,
     ActiveLearningSampler,
     LabelingQueue,
     QueryBatch,
-    STRATEGIES,
 )
 
 
@@ -58,8 +58,8 @@ class TestActiveLearningStrategies:
     def test_entropy_selects_highest_entropy(self):
         sampler = ActiveLearningSampler(strategy="entropy", budget=2)
         preds = [
-            {"label": "anomaly", "confidence": 0.5},   # max entropy
-            {"label": "normal", "confidence": 0.5},    # max entropy
+            {"label": "anomaly", "confidence": 0.5},  # max entropy
+            {"label": "normal", "confidence": 0.5},  # max entropy
             {"label": "anomaly", "confidence": 0.99},  # low entropy
         ]
         batch = sampler.select(preds)
@@ -102,9 +102,7 @@ class TestActiveLearningStrategies:
         assert batch.size == 5  # clamped to pool size
 
     def test_confidence_floor_filters_low_confidence(self):
-        sampler = ActiveLearningSampler(
-            strategy="uncertainty", budget=10, confidence_floor=0.6
-        )
+        sampler = ActiveLearningSampler(strategy="uncertainty", budget=10, confidence_floor=0.6)
         preds = _preds(5, [0.3, 0.4, 0.7, 0.8, 0.9])
         batch = sampler.select(preds)
         # Only indices with conf >= 0.6 considered
@@ -112,18 +110,14 @@ class TestActiveLearningStrategies:
             assert preds[idx]["confidence"] >= 0.6
 
     def test_margin_confidence_floor(self):
-        sampler = ActiveLearningSampler(
-            strategy="margin", budget=5, confidence_floor=0.7
-        )
+        sampler = ActiveLearningSampler(strategy="margin", budget=5, confidence_floor=0.7)
         preds = _preds(5, [0.3, 0.4, 0.75, 0.80, 0.85])
         batch = sampler.select(preds)
         for idx in batch.indices:
             assert preds[idx]["confidence"] >= 0.7
 
     def test_entropy_confidence_floor(self):
-        sampler = ActiveLearningSampler(
-            strategy="entropy", budget=5, confidence_floor=0.7
-        )
+        sampler = ActiveLearningSampler(strategy="entropy", budget=5, confidence_floor=0.7)
         preds = _preds(5, [0.2, 0.3, 0.75, 0.80, 0.85])
         batch = sampler.select(preds)
         for idx in batch.indices:
@@ -175,7 +169,9 @@ class TestCoreset:
 
 class TestQueryBatch:
     def test_size_property(self):
-        batch = QueryBatch(indices=[0, 1, 2], scores=[0.9, 0.8, 0.7], strategy="uncertainty", budget=3)
+        batch = QueryBatch(
+            indices=[0, 1, 2], scores=[0.9, 0.8, 0.7], strategy="uncertainty", budget=3
+        )
         assert batch.size == 3
 
     def test_size_empty(self):
@@ -307,7 +303,7 @@ class TestIntegrationActiveLearning:
         sampler = ActiveLearningSampler(strategy="entropy", budget=5)
         # conf=0.5 → max entropy, conf=0.99 → min entropy
         preds = [
-            {"label": "anomaly", "confidence": 0.5},   # most uncertain
+            {"label": "anomaly", "confidence": 0.5},  # most uncertain
             {"label": "anomaly", "confidence": 0.6},
             {"label": "anomaly", "confidence": 0.7},
             {"label": "anomaly", "confidence": 0.8},

@@ -93,11 +93,13 @@ class MIMIILoader(BaseDatasetLoader):
                 # Slide window over time frames
                 for t in range(log_mel.shape[1] - FRAMES_PER_CLIP):
                     frame = log_mel[:, t : t + FRAMES_PER_CLIP].flatten()
-                    records.append({
-                        **{f"mel_{i:03d}": float(v) for i, v in enumerate(frame)},
-                        "label": "anomaly" if is_anomaly else "normal",
-                        "source_file": wav_path.name,
-                    })
+                    records.append(
+                        {
+                            **{f"mel_{i:03d}": float(v) for i, v in enumerate(frame)},
+                            "label": "anomaly" if is_anomaly else "normal",
+                            "source_file": wav_path.name,
+                        }
+                    )
             except Exception as exc:
                 logger.warning("Failed to process %s: %s", wav_path, exc)
 
@@ -122,17 +124,21 @@ class MIMIILoader(BaseDatasetLoader):
 
         records = []
         for row in normal:
-            records.append({
-                **{f"mel_{i:03d}": round(float(v), 4) for i, v in enumerate(row)},
-                "label": "normal",
-                "source_file": "synthetic",
-            })
+            records.append(
+                {
+                    **{f"mel_{i:03d}": round(float(v), 4) for i, v in enumerate(row)},
+                    "label": "normal",
+                    "source_file": "synthetic",
+                }
+            )
         for row in anomaly:
-            records.append({
-                **{f"mel_{i:03d}": round(float(v), 4) for i, v in enumerate(row)},
-                "label": "anomaly",
-                "source_file": "synthetic",
-            })
+            records.append(
+                {
+                    **{f"mel_{i:03d}": round(float(v), 4) for i, v in enumerate(row)},
+                    "label": "anomaly",
+                    "source_file": "synthetic",
+                }
+            )
 
         df = pd.DataFrame(records).sample(frac=1, random_state=seed).reset_index(drop=True)
         logger.info("MIMII: synthetic generated (%d rows)", len(df))

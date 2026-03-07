@@ -20,10 +20,10 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from haiip.api.models import Alert, FeedbackLog, Prediction, Tenant, User
-
+from haiip.api.models import FeedbackLog, Prediction, Tenant, User
 
 # ── Full registration → prediction journey ────────────────────────────────────
+
 
 class TestRegistrationToPrediction:
     """Complete user journey: register → login → predict → feedback."""
@@ -183,11 +183,10 @@ class TestRegistrationToPrediction:
 
 # ── Alert integration ─────────────────────────────────────────────────────────
 
+
 class TestAlertIntegration:
     @pytest.mark.asyncio
-    async def test_create_alert_and_acknowledge(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_create_alert_and_acknowledge(self, client: AsyncClient, admin_headers: dict):
         """Create an alert and acknowledge it — state transitions correctly."""
         create_resp = await client.post(
             "/api/v1/alerts",
@@ -211,9 +210,7 @@ class TestAlertIntegration:
             assert ack_resp.json().get("is_acknowledged") is True
 
     @pytest.mark.asyncio
-    async def test_alert_list_shows_created_alert(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_alert_list_shows_created_alert(self, client: AsyncClient, admin_headers: dict):
         await client.post(
             "/api/v1/alerts",
             json={
@@ -233,6 +230,7 @@ class TestAlertIntegration:
 
 # ── Tenant isolation ──────────────────────────────────────────────────────────
 
+
 class TestTenantIsolation:
     """Verify that tenant A cannot access tenant B data."""
 
@@ -247,6 +245,7 @@ class TestTenantIsolation:
     @pytest_asyncio.fixture
     async def second_admin(self, db_session: AsyncSession, second_tenant: Tenant) -> User:
         from haiip.api.auth import hash_password
+
         user = User(
             tenant_id=second_tenant.id,
             email="admin@second-sme.com",
@@ -262,6 +261,7 @@ class TestTenantIsolation:
     @pytest_asyncio.fixture
     def second_admin_headers(self, second_admin: User, second_tenant: Tenant) -> dict:
         from haiip.api.auth import create_access_token
+
         token = create_access_token(second_admin.id, second_tenant.id, second_admin.role)
         return {"Authorization": f"Bearer {token}"}
 
@@ -327,6 +327,7 @@ class TestTenantIsolation:
 
 # ── Health check integration ──────────────────────────────────────────────────
 
+
 class TestHealthIntegration:
     @pytest.mark.asyncio
     async def test_health_endpoint_returns_healthy(self, client: AsyncClient):
@@ -350,6 +351,7 @@ class TestHealthIntegration:
 
 
 # ── Batch prediction integration ──────────────────────────────────────────────
+
 
 class TestBatchPredictionIntegration:
     @pytest.mark.asyncio

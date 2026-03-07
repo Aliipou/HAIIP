@@ -13,7 +13,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -28,8 +28,8 @@ from haiip.core.agent import (
     _tool_search_kb,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_rag():
@@ -147,6 +147,7 @@ CRITICAL_READINGS = {
 
 # ── 1. Tool planning ──────────────────────────────────────────────────────────
 
+
 class TestToolPlanning:
     def test_kb_always_included(self, empty_agent):
         tools = empty_agent._plan_tools("what is the maintenance procedure?", None)
@@ -185,6 +186,7 @@ class TestToolPlanning:
 
 
 # ── 2. Tool function unit tests ────────────────────────────────────────────────
+
 
 class TestToolFunctions:
     def test_search_kb_with_engine(self, mock_rag):
@@ -238,6 +240,7 @@ class TestToolFunctions:
 
 
 # ── 3. Full query pipeline ─────────────────────────────────────────────────────
+
 
 class TestQueryPipeline:
     def test_basic_query_returns_response(self, full_agent):
@@ -297,6 +300,7 @@ class TestQueryPipeline:
 
 # ── 4. Human oversight (EU AI Act Article 14) ─────────────────────────────────
 
+
 class TestHumanOversight:
     def test_no_human_review_normal_conditions(self, full_agent):
         resp = full_agent.query("is the machine normal?", sensor_readings=NORMAL_READINGS)
@@ -335,11 +339,14 @@ class TestHumanOversight:
 
     def test_limitations_include_human_oversight_statement(self, full_agent):
         resp = full_agent.query("simple query")
-        assert any("human oversight" in lim.lower() or "article 14" in lim.lower()
-                   for lim in resp.limitations)
+        assert any(
+            "human oversight" in lim.lower() or "article 14" in lim.lower()
+            for lim in resp.limitations
+        )
 
 
 # ── 5. Graceful degradation (no components) ───────────────────────────────────
+
 
 class TestGracefulDegradation:
     def test_empty_agent_does_not_raise(self, empty_agent):
@@ -376,10 +383,9 @@ class TestGracefulDegradation:
 
 # ── 6. Answer synthesis ────────────────────────────────────────────────────────
 
+
 class TestAnswerSynthesis:
-    def test_anomaly_message_in_answer_when_anomaly(
-        self, mock_rag, mock_anomaly_detector_alert
-    ):
+    def test_anomaly_message_in_answer_when_anomaly(self, mock_rag, mock_anomaly_detector_alert):
         agent = IndustrialAgent(rag_engine=mock_rag, anomaly_detector=mock_anomaly_detector_alert)
         resp = agent.query("detect anomaly", sensor_readings=NORMAL_READINGS)
         assert "anomaly" in resp.answer.lower() or "inspection" in resp.answer.lower()
@@ -411,6 +417,7 @@ class TestAnswerSynthesis:
 
 
 # ── 7. Capabilities ───────────────────────────────────────────────────────────
+
 
 class TestCapabilities:
     def test_capabilities_has_tools_list(self, full_agent):
@@ -447,6 +454,7 @@ class TestCapabilities:
 
 
 # ── 8. Edge cases ─────────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_very_long_query(self, full_agent):

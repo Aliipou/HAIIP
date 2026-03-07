@@ -19,7 +19,8 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from haiip.streaming.schema import (
     TOPIC_SENSORS_RAW,
@@ -65,7 +66,7 @@ class InferenceConsumer:
     def start(self, blocking: bool = True) -> None:
         """Start consuming. If blocking=False, runs in background thread."""
         try:
-            from confluent_kafka import Consumer, KafkaError
+            from confluent_kafka import Consumer, KafkaError  # noqa: F401
         except ImportError:
             logger.warning("confluent-kafka not installed — InferenceConsumer disabled")
             return
@@ -106,7 +107,11 @@ class InferenceConsumer:
             self._thread.join(timeout=timeout)
         if self._consumer:
             self._consumer.close()
-            logger.info("InferenceConsumer closed (processed=%d errors=%d)", self._messages_processed, self._errors)
+            logger.info(
+                "InferenceConsumer closed (processed=%d errors=%d)",
+                self._messages_processed,
+                self._errors,
+            )
 
     # ── Core loop ─────────────────────────────────────────────────────────────
 

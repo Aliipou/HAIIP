@@ -79,7 +79,7 @@ class _LSTMAutoencoderCore(nn.Module):
             batch_first=True,
         )
 
-    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (batch, seq_len, n_features)
         _, (hidden, _) = self.encoder(x)
         # Repeat bottleneck across sequence length
@@ -137,7 +137,7 @@ class AnomalyAutoencoder:
 
     # ── Training ──────────────────────────────────────────────────────────────
 
-    def fit(self, X: np.ndarray) -> "AnomalyAutoencoder":
+    def fit(self, X: np.ndarray) -> AnomalyAutoencoder:
         """Fit autoencoder on normal (or mixed) data.
 
         Args:
@@ -225,7 +225,9 @@ class AnomalyAutoencoder:
 
         normalized = float(np.clip(error / (self._threshold * 2.0), 0.0, 1.0))
         label = "anomaly" if error > self._threshold else "normal"
-        confidence = float(np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0))
+        confidence = float(
+            np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0)
+        )
 
         # Per-feature z-scores for explanation
         z_scores = arr_norm[0].tolist()
@@ -282,7 +284,10 @@ class AnomalyAutoencoder:
             str(out),
             input_names=["input"],
             output_names=["reconstructed"],
-            dynamic_axes={"input": {0: "batch_size"}, "reconstructed": {0: "batch_size"}},
+            dynamic_axes={
+                "input": {0: "batch_size"},
+                "reconstructed": {0: "batch_size"},
+            },
             opset_version=opset,
             do_constant_folding=True,
         )
@@ -311,7 +316,7 @@ class AnomalyAutoencoder:
         logger.info("AnomalyAutoencoder saved to %s", p)
 
     @classmethod
-    def load(cls, path: Path | str) -> "AnomalyAutoencoder":
+    def load(cls, path: Path | str) -> AnomalyAutoencoder:
         """Load a previously saved model."""
         if not _TORCH_AVAILABLE:
             raise RuntimeError("PyTorch required for loading")
@@ -328,7 +333,7 @@ class AnomalyAutoencoder:
             hidden_size=obj.hidden_size,
             n_layers=obj.n_layers,
         )
-        core.load_state_dict(torch.load(p / "autoencoder.pt", map_location="cpu"))
+        core.load_state_dict(torch.load(p / "autoencoder.pt", map_location="cpu"))  # nosec B614
         core.eval()
         obj._model = core
         obj._threshold = float(meta["threshold"])
@@ -378,16 +383,16 @@ class AnomalyAutoencoder:
 class _LitAutoencoder(L.LightningModule if _LIGHTNING_AVAILABLE else object):  # type: ignore[misc]
     """Lightning training logic for the LSTM autoencoder."""
 
-    def __init__(self, core: "_LSTMAutoencoderCore", lr: float = 1e-3) -> None:
+    def __init__(self, core: _LSTMAutoencoderCore, lr: float = 1e-3) -> None:
         super().__init__()
         self.core = core
         self.lr = lr
         self._loss_fn = nn.MSELoss()
 
-    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.core(x)
 
-    def training_step(self, batch: tuple["torch.Tensor", ...], _: int) -> "torch.Tensor":
+    def training_step(self, batch: tuple[torch.Tensor, ...], _: int) -> torch.Tensor:
         (x,) = batch
         reconstructed = self(x)
         loss = self._loss_fn(reconstructed, x)
@@ -441,7 +446,7 @@ class _LSTMMaintenanceCore(nn.Module):
             nn.Softplus(),  # RUL ≥ 0
         )
 
-    def forward(self, x: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor"]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # x: (batch, seq_len, n_features)
         out, _ = self.lstm(x)
         last = out[:, -1, :]  # take last time step
@@ -511,7 +516,7 @@ class MaintenanceLSTM:
         X: np.ndarray,
         y_class: np.ndarray,
         y_rul: np.ndarray | None = None,
-    ) -> "MaintenanceLSTM":
+    ) -> MaintenanceLSTM:
         """Train LSTM on sensor sequences.
 
         Args:
@@ -532,7 +537,7 @@ class MaintenanceLSTM:
         X_norm = (X_arr - self._scaler_mean) / self._scaler_std
 
         # Encode labels
-        unique_classes = sorted(set(str(c) for c in y_class))
+        unique_classes = sorted({str(c) for c in y_class})
         self._label_to_idx = {c: i for i, c in enumerate(unique_classes)}
         self.class_names = unique_classes
         y_idx = np.array([self._label_to_idx[str(c)] for c in y_class], dtype=np.int64)
@@ -614,7 +619,9 @@ class MaintenanceLSTM:
         pred_proba = float(proba[pred_idx])
         rul_cycles = max(0, int(round(rul_denorm)))
 
-        normal_idx = self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
+        normal_idx = (
+            self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
+        )
         failure_proba = 1.0 - float(proba[normal_idx]) if normal_idx >= 0 else pred_proba
 
         return {
@@ -623,8 +630,7 @@ class MaintenanceLSTM:
             "failure_probability": round(failure_proba, 4),
             "rul_cycles": rul_cycles,
             "class_probabilities": {
-                cls: round(float(p), 4)
-                for cls, p in zip(self.class_names, proba)
+                cls: round(float(p), 4) for cls, p in zip(self.class_names, proba)
             },
             "explanation": {
                 "model": "BiLSTM",
@@ -699,7 +705,7 @@ class MaintenanceLSTM:
         logger.info("MaintenanceLSTM saved to %s", p)
 
     @classmethod
-    def load(cls, path: Path | str) -> "MaintenanceLSTM":
+    def load(cls, path: Path | str) -> MaintenanceLSTM:
         if not _TORCH_AVAILABLE:
             raise RuntimeError("PyTorch required for loading")
         import json
@@ -728,7 +734,7 @@ class MaintenanceLSTM:
             hidden_size=obj.hidden_size,
             n_layers=obj.n_layers,
         )
-        core.load_state_dict(torch.load(p / "lstm_maintenance.pt", map_location="cpu"))
+        core.load_state_dict(torch.load(p / "lstm_maintenance.pt", map_location="cpu"))  # nosec B614
         core.eval()
         obj._model = core
         obj._is_fitted = True
@@ -778,7 +784,7 @@ class _LitMaintenance(L.LightningModule if _LIGHTNING_AVAILABLE else object):  #
 
     def __init__(
         self,
-        core: "_LSTMMaintenanceCore",
+        core: _LSTMMaintenanceCore,
         lr: float = 1e-3,
         has_rul: bool = True,
         rul_weight: float = 0.3,
@@ -791,12 +797,10 @@ class _LitMaintenance(L.LightningModule if _LIGHTNING_AVAILABLE else object):  #
         self._clf_loss = nn.CrossEntropyLoss()
         self._rul_loss = nn.MSELoss()
 
-    def forward(self, x: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor"]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         return self.core(x)
 
-    def training_step(
-        self, batch: tuple["torch.Tensor", ...], _: int
-    ) -> "torch.Tensor":
+    def training_step(self, batch: tuple[torch.Tensor, ...], _: int) -> torch.Tensor:
         x, y_cls, y_rul = batch
         logits, rul_pred = self(x)
         loss_clf = self._clf_loss(logits, y_cls)

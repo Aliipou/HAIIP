@@ -19,8 +19,8 @@ from httpx import AsyncClient
 from haiip.api.auth import create_access_token, hash_password
 from haiip.api.models import Tenant, User
 
-
 # ── Additional role fixtures ──────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def test_viewer(db_session, test_tenant: Tenant) -> User:
@@ -44,6 +44,7 @@ def viewer_headers(test_viewer: User, test_tenant: Tenant) -> dict:
 
 
 # ── Feature: Machine Operator Reviews Prediction ──────────────────────────────
+
 
 class TestOperatorReviewsAIPrediction:
     """
@@ -161,6 +162,7 @@ class TestOperatorReviewsAIPrediction:
 
 # ── Feature: Engineer Monitors Machine Health ─────────────────────────────────
 
+
 class TestEngineerMonitorsMachineHealth:
     """
     Feature: Real-time machine health monitoring
@@ -170,9 +172,7 @@ class TestEngineerMonitorsMachineHealth:
     """
 
     @pytest.mark.asyncio
-    async def test_engineer_can_access_metrics(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_engineer_can_access_metrics(self, client: AsyncClient, admin_headers: dict):
         """
         Given: The system is running with sensor data
         When: An engineer requests health metrics
@@ -182,9 +182,7 @@ class TestEngineerMonitorsMachineHealth:
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_engineer_can_view_alerts(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_engineer_can_view_alerts(self, client: AsyncClient, admin_headers: dict):
         """
         Given: Anomaly alerts exist in the system
         When: An engineer lists alerts
@@ -206,9 +204,7 @@ class TestEngineerMonitorsMachineHealth:
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_engineer_can_acknowledge_alert(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_engineer_can_acknowledge_alert(self, client: AsyncClient, admin_headers: dict):
         """
         Given: A critical alert requires human acknowledgement
         When: An engineer acknowledges it
@@ -265,6 +261,7 @@ class TestEngineerMonitorsMachineHealth:
 
 # ── Feature: Admin Manages Team ──────────────────────────────────────────────
 
+
 class TestAdminManagesTeam:
     """
     Feature: User and tenant management
@@ -274,9 +271,7 @@ class TestAdminManagesTeam:
     """
 
     @pytest.mark.asyncio
-    async def test_admin_adds_new_team_member(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_admin_adds_new_team_member(self, client: AsyncClient, admin_headers: dict):
         """
         Given: A new technician joins the team
         When: Admin creates a user account with operator role
@@ -313,9 +308,7 @@ class TestAdminManagesTeam:
         assert resp.json()["role"] == "engineer"
 
     @pytest.mark.asyncio
-    async def test_admin_views_compliance_report(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_admin_views_compliance_report(self, client: AsyncClient, admin_headers: dict):
         """
         Given: The system has been running for a reporting period
         When: Admin requests the audit log
@@ -326,9 +319,7 @@ class TestAdminManagesTeam:
         assert isinstance(resp.json(), list)
 
     @pytest.mark.asyncio
-    async def test_admin_views_system_stats(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_admin_views_system_stats(self, client: AsyncClient, admin_headers: dict):
         """
         Given: System is operational
         When: Admin checks system statistics
@@ -344,6 +335,7 @@ class TestAdminManagesTeam:
 
 # ── Feature: Viewer Has Read-Only Access ─────────────────────────────────────
 
+
 class TestViewerReadOnlyAccess:
     """
     Feature: Read-only stakeholder access
@@ -353,23 +345,17 @@ class TestViewerReadOnlyAccess:
     """
 
     @pytest.mark.asyncio
-    async def test_viewer_can_see_predictions(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
+    async def test_viewer_can_see_predictions(self, client: AsyncClient, viewer_headers: dict):
         resp = await client.get("/api/v1/predictions", headers=viewer_headers)
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_viewer_can_see_metrics(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
+    async def test_viewer_can_see_metrics(self, client: AsyncClient, viewer_headers: dict):
         resp = await client.get("/api/v1/metrics/health", headers=viewer_headers)
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_viewer_cannot_make_predictions(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
+    async def test_viewer_cannot_make_predictions(self, client: AsyncClient, viewer_headers: dict):
         """Viewers should not be able to make predictions."""
         resp = await client.post(
             "/api/v1/predict",
@@ -392,6 +378,7 @@ class TestViewerReadOnlyAccess:
 
 
 # ── Feature: Compliance Officer Reviews AI Act Report ────────────────────────
+
 
 class TestComplianceOfficerReview:
     """
@@ -459,9 +446,7 @@ class TestComplianceOfficerReview:
         event = engine.log_decision("pred-audit", features, "anomaly", 0.91)
 
         # Verify hash
-        expected_hash = hashlib.sha256(
-            json.dumps(features, sort_keys=True).encode()
-        ).hexdigest()
+        expected_hash = hashlib.sha256(json.dumps(features, sort_keys=True).encode()).hexdigest()
         assert event.input_hash == expected_hash
 
         # Raw temperature value not literally in hash (it's a hex digest)

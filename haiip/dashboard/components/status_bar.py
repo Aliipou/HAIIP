@@ -17,6 +17,7 @@ from __future__ import annotations
 
 try:
     import streamlit as st
+
     _STREAMLIT = True
 except ImportError:
     _STREAMLIT = False
@@ -40,8 +41,7 @@ def render_data_source_banner(mode: str | None = None) -> None:
 
     if mode_str == "real_hardware":
         st.success(
-            "Connected to hardware — OPC UA live. "
-            "Predictions are based on real sensor data."
+            "Connected to hardware — OPC UA live. Predictions are based on real sensor data."
         )
     elif mode_str == "hardware_fallback":
         st.warning(
@@ -49,10 +49,7 @@ def render_data_source_banner(mode: str | None = None) -> None:
             "Predictions are for demonstration only and must NOT be used for operational decisions."
         )
     elif mode_str == "simulation":
-        st.info(
-            "Simulation mode — synthetic sensor data. "
-            "No real hardware connected."
-        )
+        st.info("Simulation mode — synthetic sensor data. No real hardware connected.")
     else:
         st.warning(f"Unknown data source mode: {mode_str}")
 
@@ -94,25 +91,25 @@ def render_system_status(
     cols = st.columns(4)
 
     with cols[0]:
-        icon = "API" if api_online else "API"
-        st.metric(label="API Server", value="Online" if api_online else "Offline",
-                  delta=None)
+        st.metric(label="API Server", value="Online" if api_online else "Offline", delta=None)
 
     with cols[1]:
-        st.metric(label="ML Models", value="Ready" if ml_ready else "Loading",
-                  delta=None)
+        st.metric(label="ML Models", value="Ready" if ml_ready else "Loading", delta=None)
 
     with cols[2]:
         mode_label = {
-            "real_hardware":     "Hardware",
+            "real_hardware": "Hardware",
             "hardware_fallback": "Fallback",
-            "simulation":        "Simulated",
+            "simulation": "Simulated",
         }.get(hardware_mode.lower(), hardware_mode)
         st.metric(label="Data Source", value=mode_label, delta=None)
 
     with cols[3]:
-        st.metric(label="Redis/Celery", value="Online" if redis_online else "Offline",
-                  delta=None)
+        st.metric(
+            label="Redis/Celery",
+            value="Online" if redis_online else "Offline",
+            delta=None,
+        )
 
     # Show banner below status row if not real hardware
     render_data_source_banner(hardware_mode)

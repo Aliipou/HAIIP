@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class FeedbackRecord:
     prediction_id: str
     was_correct: bool
     corrected_label: str | None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     machine_id: str | None = None
 
 
@@ -63,7 +63,7 @@ class FeedbackEngine:
         was_correct: bool,
         corrected_label: str | None = None,
         machine_id: str | None = None,
-    ) -> "FeedbackEngineState":
+    ) -> FeedbackEngineState:
         """Record a single feedback signal from a human operator.
 
         Returns current engine state including whether retraining is needed.
@@ -89,7 +89,7 @@ class FeedbackEngine:
             )
         return state
 
-    def record_batch(self, records: list[dict[str, Any]]) -> "FeedbackEngineState":
+    def record_batch(self, records: list[dict[str, Any]]) -> FeedbackEngineState:
         """Record multiple feedback signals at once."""
         for rec in records:
             self._records.append(
@@ -127,7 +127,7 @@ class FeedbackEngine:
 
     # ── State ─────────────────────────────────────────────────────────────────
 
-    def _compute_state(self) -> "FeedbackEngineState":
+    def _compute_state(self) -> FeedbackEngineState:
         window = list(self._records)
         window_size = len(window)
 
@@ -145,9 +145,7 @@ class FeedbackEngine:
         window_accuracy = window_correct / window_size
 
         cumulative_accuracy = (
-            self._cumulative_correct / self._cumulative_total
-            if self._cumulative_total > 0
-            else 1.0
+            self._cumulative_correct / self._cumulative_total if self._cumulative_total > 0 else 1.0
         )
 
         # Count corrected labels (error distribution)
@@ -157,8 +155,7 @@ class FeedbackEngine:
                 error_dist[r.corrected_label] = error_dist.get(r.corrected_label, 0) + 1
 
         needs_retraining = (
-            window_size >= self.min_samples
-            and window_accuracy < self.retrain_threshold
+            window_size >= self.min_samples and window_accuracy < self.retrain_threshold
         )
 
         return FeedbackEngineState(
@@ -170,7 +167,7 @@ class FeedbackEngine:
             error_distribution=error_dist,
         )
 
-    def get_state(self) -> "FeedbackEngineState":
+    def get_state(self) -> FeedbackEngineState:
         return self._compute_state()
 
     def reset_window(self) -> None:

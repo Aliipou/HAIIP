@@ -25,7 +25,7 @@ import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -34,11 +34,12 @@ logger = logging.getLogger(__name__)
 
 # ── Risk Classification ───────────────────────────────────────────────────────
 
+
 class RiskLevel(str, Enum):
-    UNACCEPTABLE = "unacceptable"   # Article 5 — prohibited
-    HIGH         = "high"           # Annex III — strict requirements
-    LIMITED      = "limited"        # Article 52 — transparency obligations
-    MINIMAL      = "minimal"        # No specific obligations
+    UNACCEPTABLE = "unacceptable"  # Article 5 — prohibited
+    HIGH = "high"  # Annex III — strict requirements
+    LIMITED = "limited"  # Article 52 — transparency obligations
+    MINIMAL = "minimal"  # No specific obligations
 
 
 @dataclass
@@ -50,7 +51,7 @@ class RiskAssessment:
     transparency_required: bool
     human_oversight_required: bool
     conformity_assessment_required: bool
-    assessed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    assessed_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -58,9 +59,11 @@ class RiskAssessment:
 
 # ── Transparency Declaration ──────────────────────────────────────────────────
 
+
 @dataclass
 class TransparencyReport:
     """Article 52 transparency report — must be available to end users."""
+
     system_name: str
     tenant_id: str
     report_period_start: str
@@ -76,7 +79,7 @@ class TransparencyReport:
     limitations: list[str]
     human_oversight_mechanism: str
     complaint_procedure: str
-    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     version: str = "0.1.0"
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,17 +104,17 @@ from manufacturing machines to predict failures and detect anomalies.
 |--------|-------|
 | Total AI decisions | {self.total_decisions:,} |
 | Human-reviewed decisions | {self.human_reviewed_count:,} |
-| Human review rate | {self.human_review_rate*100:.1f}% |
-| Anomaly detection rate | {self.anomaly_rate*100:.1f}% |
-| Average model confidence | {self.average_confidence*100:.1f}% |
+| Human review rate | {self.human_review_rate * 100:.1f}% |
+| Anomaly detection rate | {self.anomaly_rate * 100:.1f}% |
+| Average model confidence | {self.average_confidence * 100:.1f}% |
 
 ## Model Information
-**Model types**: {', '.join(self.model_types_used)}
-**Training datasets**: {', '.join(self.training_datasets)}
-**Data sources**: {', '.join(self.data_sources)}
+**Model types**: {", ".join(self.model_types_used)}
+**Training datasets**: {", ".join(self.training_datasets)}
+**Data sources**: {", ".join(self.data_sources)}
 
 ## Limitations
-{chr(10).join(f'- {l}' for l in self.limitations)}
+{chr(10).join(f"- {item}" for item in self.limitations)}
 
 ## Human Oversight
 {self.human_oversight_mechanism}
@@ -123,20 +126,22 @@ from manufacturing machines to predict failures and detect anomalies.
 
 # ── Audit Event ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ComplianceEvent:
     """Single auditable event — Article 12 record keeping."""
+
     event_id: str
     tenant_id: str
-    event_type: str          # "prediction", "human_override", "alert", "retrain"
+    event_type: str  # "prediction", "human_override", "alert", "retrain"
     resource_id: str | None
     user_id: str | None
-    input_hash: str          # SHA-256 of input features (privacy-preserving)
+    input_hash: str  # SHA-256 of input features (privacy-preserving)
     output_label: str
     confidence: float
     human_reviewed: bool
     explanation_available: bool
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -144,6 +149,7 @@ class ComplianceEvent:
 
 
 # ── Compliance Engine ─────────────────────────────────────────────────────────
+
 
 class ComplianceEngine:
     """Central EU AI Act compliance engine for HAIIP.
@@ -277,7 +283,9 @@ class ComplianceEngine:
         if confidence < self.min_confidence_threshold:
             logger.warning(
                 "compliance.low_confidence: prediction=%s confidence=%.3f threshold=%.3f",
-                prediction_id, confidence, self.min_confidence_threshold,
+                prediction_id,
+                confidence,
+                self.min_confidence_threshold,
             )
 
         return event
@@ -311,7 +319,10 @@ class ComplianceEngine:
         self._events.append(event)
         logger.info(
             "compliance.human_override: prediction=%s %s→%s by=%s",
-            prediction_id, original_label, corrected_label, user_id,
+            prediction_id,
+            original_label,
+            corrected_label,
+            user_id,
         )
         return event
 
@@ -335,26 +346,30 @@ class ComplianceEngine:
         low_conf = [e for e in recent if e.confidence < self.min_confidence_threshold]
         low_conf_rate = len(low_conf) / len(recent)
         if low_conf_rate > self.incident_low_confidence_rate:
-            incidents.append({
-                "type": "low_confidence",
-                "severity": "high",
-                "description": (
-                    f"Low confidence rate {low_conf_rate*100:.1f}% exceeds "
-                    f"threshold {self.incident_low_confidence_rate*100:.1f}%"
-                ),
-                "count": len(low_conf),
-                "recommendation": "Trigger model retraining. Check for distribution shift.",
-            })
+            incidents.append(
+                {
+                    "type": "low_confidence",
+                    "severity": "high",
+                    "description": (
+                        f"Low confidence rate {low_conf_rate * 100:.1f}% exceeds "
+                        f"threshold {self.incident_low_confidence_rate * 100:.1f}%"
+                    ),
+                    "count": len(low_conf),
+                    "recommendation": "Trigger model retraining. Check for distribution shift.",
+                }
+            )
 
         # Human review gap
         unreviewed = [e for e in recent if not e.human_reviewed]
         if len(unreviewed) > 50:
-            incidents.append({
-                "type": "human_review_gap",
-                "severity": "medium",
-                "description": f"{len(unreviewed)} decisions in last 100 not human-reviewed.",
-                "recommendation": "Increase operator review frequency. Check dashboard engagement.",
-            })
+            incidents.append(
+                {
+                    "type": "human_review_gap",
+                    "severity": "medium",
+                    "description": f"{len(unreviewed)} decisions in last 100 not human-reviewed.",
+                    "recommendation": "Increase operator review frequency. Check dashboard engagement.",
+                }
+            )
 
         # Label bias
         labels = [e.output_label for e in recent]
@@ -362,14 +377,16 @@ class ComplianceEngine:
             most_common = max(set(labels), key=labels.count)
             bias_rate = labels.count(most_common) / len(labels)
             if bias_rate > 0.95:
-                incidents.append({
-                    "type": "label_bias",
-                    "severity": "low",
-                    "description": (
-                        f"Label '{most_common}' appears in {bias_rate*100:.1f}% of recent decisions."
-                    ),
-                    "recommendation": "Review class imbalance. Consider rebalancing training data.",
-                })
+                incidents.append(
+                    {
+                        "type": "label_bias",
+                        "severity": "low",
+                        "description": (
+                            f"Label '{most_common}' appears in {bias_rate * 100:.1f}% of recent decisions."
+                        ),
+                        "recommendation": "Review class imbalance. Consider rebalancing training data.",
+                    }
+                )
 
         return incidents
 
@@ -381,27 +398,22 @@ class ComplianceEngine:
         period_end: datetime | None = None,
     ) -> TransparencyReport:
         """Generate Article 52 transparency report for the current tenant."""
-        now = datetime.now(timezone.utc)
-        start = period_start or datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        now = datetime.now(UTC)
+        start = period_start or datetime(now.year, now.month, 1, tzinfo=UTC)
         end = period_end or now
 
         events_in_period = [
-            e for e in self._events
-            if start.isoformat() <= e.timestamp <= end.isoformat()
+            e for e in self._events if start.isoformat() <= e.timestamp <= end.isoformat()
         ]
 
         total = len(events_in_period)
         reviewed = sum(1 for e in events_in_period if e.human_reviewed)
         anomalies = sum(1 for e in events_in_period if e.output_label == "anomaly")
-        avg_conf = (
-            sum(e.confidence for e in events_in_period) / total
-            if total > 0 else 0.0
-        )
+        avg_conf = sum(e.confidence for e in events_in_period) / total if total > 0 else 0.0
 
-        model_types = list({
-            e.metadata.get("model_type", "anomaly_detection")
-            for e in events_in_period
-        }) or ["anomaly_detection", "predictive_maintenance"]
+        model_types = list(
+            {e.metadata.get("model_type", "anomaly_detection") for e in events_in_period}
+        ) or ["anomaly_detection", "predictive_maintenance"]
 
         return TransparencyReport(
             system_name=self.system_name,

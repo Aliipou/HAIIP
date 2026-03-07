@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from haiip.api.auth import create_access_token, hash_password
 from haiip.api.models import AuditLog, ModelRegistry, Tenant, User
 
-
 # ── Extra fixtures ────────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def test_engineer(db_session: AsyncSession, test_tenant: Tenant) -> User:
@@ -73,6 +73,7 @@ async def audit_entry(db_session: AsyncSession, test_tenant: Tenant, test_admin:
 
 # ── Tenant info ───────────────────────────────────────────────────────────────
 
+
 class TestTenantInfo:
     @pytest.mark.asyncio
     async def test_admin_can_get_own_tenant(
@@ -85,9 +86,7 @@ class TestTenantInfo:
         assert data["slug"] == test_tenant.slug
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_get_tenant(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_get_tenant(self, client: AsyncClient, operator_headers: dict):
         resp = await client.get("/api/v1/admin/tenant", headers=operator_headers)
         assert resp.status_code == 403
 
@@ -97,9 +96,7 @@ class TestTenantInfo:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_tenant_response_has_user_count(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_tenant_response_has_user_count(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/tenant", headers=admin_headers)
         assert "user_count" in resp.json()
         assert isinstance(resp.json()["user_count"], int)
@@ -107,10 +104,15 @@ class TestTenantInfo:
 
 # ── User management ───────────────────────────────────────────────────────────
 
+
 class TestUserManagement:
     @pytest.mark.asyncio
     async def test_admin_lists_users(
-        self, client: AsyncClient, admin_headers: dict, test_admin: User, test_operator: User
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        test_admin: User,
+        test_operator: User,
     ):
         resp = await client.get("/api/v1/admin/users", headers=admin_headers)
         assert resp.status_code == 200
@@ -118,16 +120,12 @@ class TestUserManagement:
         assert test_admin.email in emails
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_list_users(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_list_users(self, client: AsyncClient, operator_headers: dict):
         resp = await client.get("/api/v1/admin/users", headers=operator_headers)
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_admin_creates_user(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_admin_creates_user(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/admin/users",
             json={
@@ -234,6 +232,7 @@ class TestUserManagement:
 
 # ── Audit log ─────────────────────────────────────────────────────────────────
 
+
 class TestAuditLog:
     @pytest.mark.asyncio
     async def test_admin_retrieves_audit_log(
@@ -284,6 +283,7 @@ class TestAuditLog:
 
 # ── Model registry ────────────────────────────────────────────────────────────
 
+
 class TestModelRegistry:
     @pytest.mark.asyncio
     async def test_admin_lists_models(
@@ -323,39 +323,36 @@ class TestModelRegistry:
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_list_models(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_list_models(self, client: AsyncClient, operator_headers: dict):
         resp = await client.get("/api/v1/admin/models", headers=operator_headers)
         assert resp.status_code == 403
 
 
 # ── System stats ──────────────────────────────────────────────────────────────
 
+
 class TestSystemStats:
     @pytest.mark.asyncio
-    async def test_admin_gets_stats(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_admin_gets_stats(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/stats", headers=admin_headers)
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_stats_has_required_fields(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_stats_has_required_fields(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/stats", headers=admin_headers)
         data = resp.json()
         for field in [
-            "total_users", "active_users", "total_predictions",
-            "total_alerts", "unacknowledged_alerts", "active_models",
+            "total_users",
+            "active_users",
+            "total_predictions",
+            "total_alerts",
+            "unacknowledged_alerts",
+            "active_models",
         ]:
             assert field in data
 
     @pytest.mark.asyncio
-    async def test_stats_non_negative_values(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_stats_non_negative_values(self, client: AsyncClient, admin_headers: dict):
         resp = await client.get("/api/v1/admin/stats", headers=admin_headers)
         data = resp.json()
         for key, val in data.items():
@@ -363,8 +360,6 @@ class TestSystemStats:
                 assert val >= 0, f"{key} should be non-negative"
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_get_stats(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_get_stats(self, client: AsyncClient, operator_headers: dict):
         resp = await client.get("/api/v1/admin/stats", headers=operator_headers)
         assert resp.status_code == 403

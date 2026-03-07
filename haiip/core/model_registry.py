@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +29,7 @@ def _generate_version(model_name: str, artifact_path: str) -> str:
     Format: v{YYYYMMDD}-{8-char-hash}
     Example: v20260307-3f2a1b8c
     """
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today = datetime.now(UTC).strftime("%Y%m%d")
     path_hash = hashlib.sha256(f"{model_name}:{artifact_path}".encode()).hexdigest()[:8]
     return f"v{today}-{path_hash}"
 
@@ -68,7 +68,7 @@ def register_model_version(
         "artifact_path": str(artifact_path),
         "metrics": metrics or {},
         "is_active": is_active,
-        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "trained_at": datetime.now(UTC).isoformat(),
         "dataset_hash": dataset_hash,
     }
 
@@ -82,12 +82,16 @@ def register_model_version(
     _in_memory_registry[key] = entry
     logger.info(
         "Model version registered: tenant=%s model=%s version=%s active=%s",
-        tenant_id, model_name, version, is_active,
+        tenant_id,
+        model_name,
+        version,
+        is_active,
     )
 
     # Emit Prometheus metric
     try:
         from haiip.api.ml_metrics import record_model_version
+
         record_model_version(tenant_id, model_name, version)
     except Exception:  # noqa: BLE001
         pass
@@ -106,7 +110,6 @@ def get_active_version(tenant_id: str, model_name: str) -> str:
 
 def get_version_history(tenant_id: str, model_name: str) -> list[dict[str, Any]]:
     """Return all registered versions for a tenant + model (current + previous)."""
-    key = f"{tenant_id}:{model_name}"
     history = []
     for k, v in _in_memory_registry.items():
         if k.startswith(f"{tenant_id}:{model_name}"):
@@ -117,7 +120,8 @@ def get_version_history(tenant_id: str, model_name: str) -> list[dict[str, Any]]
 def list_active_versions(tenant_id: str) -> list[dict[str, Any]]:
     """Return all active model versions for a tenant."""
     return [
-        v for k, v in _in_memory_registry.items()
+        v
+        for k, v in _in_memory_registry.items()
         if v.get("tenant_id") == tenant_id and v.get("is_active")
     ]
 

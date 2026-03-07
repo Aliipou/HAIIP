@@ -13,8 +13,8 @@ from haiip.api.auth import (
     verify_password,
 )
 
-
 # ── Password hashing ──────────────────────────────────────────────────────────
+
 
 def test_hash_password_produces_different_hash():
     h1 = hash_password("secret123A")
@@ -33,6 +33,7 @@ def test_verify_password_wrong():
 
 
 # ── Token creation / decoding ─────────────────────────────────────────────────
+
 
 def test_access_token_decode_roundtrip():
     token = create_access_token("user-1", "tenant-1", "admin")
@@ -76,6 +77,7 @@ def test_tampered_token_raises_token_error():
 
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_me_returns_current_user(client: AsyncClient, admin_headers, test_admin):

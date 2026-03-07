@@ -23,22 +23,24 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Run:
     """One experiment run — parameters, metrics, and metadata."""
+
     run_id: str
     experiment_name: str
     status: str  # "running" | "finished" | "failed"
@@ -66,10 +68,8 @@ class Run:
         assert status in ("running", "finished", "failed"), f"Unknown status: {status}"
         self.status = status
         if status in ("finished", "failed"):
-            self.end_time = datetime.now(timezone.utc)
-            self.duration_seconds = round(
-                (self.end_time - self.start_time).total_seconds(), 3
-            )
+            self.end_time = datetime.now(UTC)
+            self.duration_seconds = round((self.end_time - self.start_time).total_seconds(), 3)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,6 +97,7 @@ class ExperimentSummary:
 
 
 # ── Tracker ───────────────────────────────────────────────────────────────────
+
 
 class ExperimentTracker:
     """In-memory + optional JSON persistence experiment tracker.
@@ -128,7 +129,7 @@ class ExperimentTracker:
             metrics={},
             tags=tags or {},
             artifacts=[],
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
         )
         self._runs[run.run_id] = run
         logger.info("experiment.run_created", run_id=run.run_id, experiment=experiment_name)
@@ -176,13 +177,16 @@ class ExperimentTracker:
     ) -> Run | None:
         """Return the run with the best value for the given metric."""
         runs = [
-            r for r in self.list_runs(experiment_name)
+            r
+            for r in self.list_runs(experiment_name)
             if metric in r.metrics and r.status == "finished"
         ]
         if not runs:
             return None
-        return max(runs, key=lambda r: r.metrics[metric]) if higher_is_better else min(
-            runs, key=lambda r: r.metrics[metric]
+        return (
+            max(runs, key=lambda r: r.metrics[metric])
+            if higher_is_better
+            else min(runs, key=lambda r: r.metrics[metric])
         )
 
     def summarise(self, experiment_name: str, metric: str | None = None) -> ExperimentSummary:
@@ -226,9 +230,7 @@ class ExperimentTracker:
                     artifacts=data.get("artifacts", []),
                     start_time=datetime.fromisoformat(data["start_time"]),
                     end_time=(
-                        datetime.fromisoformat(data["end_time"])
-                        if data.get("end_time")
-                        else None
+                        datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None
                     ),
                     duration_seconds=data.get("duration_seconds"),
                 )

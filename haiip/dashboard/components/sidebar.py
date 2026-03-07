@@ -55,12 +55,7 @@ def render_sidebar() -> str:
             st.session_state["nav_page"] = "Overview"
 
         for icon, name in NAV_ITEMS:
-            selected = st.session_state["nav_page"] == name
-            btn_style = (
-                "background:#00D4FF22; border:1px solid #00D4FF44; color:#00D4FF;"
-                if selected
-                else "background:transparent; border:1px solid transparent; color:#CBD5E0;"
-            )
+            _ = st.session_state["nav_page"] == name
             if st.button(
                 f"{icon}  {name}",
                 key=f"nav_{name}",
@@ -91,8 +86,7 @@ def render_sidebar() -> str:
         # User + logout
         email = st.session_state.get("user_email", "")
         st.markdown(
-            f'<div style="font-size:0.8rem; color:#718096; margin-bottom:0.5rem;">'
-            f'👤 {email}</div>',
+            f'<div style="font-size:0.8rem; color:#718096; margin-bottom:0.5rem;">👤 {email}</div>',
             unsafe_allow_html=True,
         )
         if st.button("Sign out", use_container_width=True):
@@ -100,7 +94,7 @@ def render_sidebar() -> str:
 
         st.markdown(
             '<div style="font-size:0.68rem; color:#4A5568; text-align:center; margin-top:1rem;">'
-            'v0.1.0 · NextIndustriAI</div>',
+            "v0.1.0 · NextIndustriAI</div>",
             unsafe_allow_html=True,
         )
 

@@ -28,10 +28,10 @@ References:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,7 @@ KNOWN_SERVICES = frozenset({"api", "worker", "dashboard", "scheduler", "test-har
 
 
 # ── Token creation ─────────────────────────────────────────────────────────────
+
 
 def create_service_token(
     service_name: str,
@@ -71,12 +72,11 @@ def create_service_token(
 
     if service_name not in KNOWN_SERVICES:
         raise ValueError(
-            f"Unknown service {service_name!r}. "
-            f"Registered services: {sorted(KNOWN_SERVICES)}"
+            f"Unknown service {service_name!r}. Registered services: {sorted(KNOWN_SERVICES)}"
         )
 
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": service_name,
         "type": SERVICE_TOKEN_TYPE,
@@ -95,6 +95,7 @@ def service_auth_headers(token: str) -> dict[str, str]:
 
 # ── Token verification ─────────────────────────────────────────────────────────
 
+
 class ServiceTokenError(Exception):
     """Raised when a service token is invalid, expired, or unrecognised."""
 
@@ -105,18 +106,14 @@ class ServiceToken:
     def __init__(self, payload: dict[str, Any]) -> None:
         self.service_name: str = payload["sub"]
         self.scopes: list[str] = payload.get("scopes", [])
-        self.issued_at: datetime = datetime.fromtimestamp(
-            payload["iat"], tz=timezone.utc
-        )
+        self.issued_at: datetime = datetime.fromtimestamp(payload["iat"], tz=UTC)
 
     def has_scope(self, scope: str) -> bool:
         return scope in self.scopes
 
     def require_scope(self, scope: str) -> None:
         if not self.has_scope(scope):
-            raise ServiceTokenError(
-                f"Service {self.service_name!r} lacks required scope {scope!r}"
-            )
+            raise ServiceTokenError(f"Service {self.service_name!r} lacks required scope {scope!r}")
 
     def __repr__(self) -> str:
         return f"ServiceToken(service={self.service_name!r}, scopes={self.scopes})"
@@ -205,6 +202,7 @@ def require_service_token(required_scope: str | None = None):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _service_secret(settings: Any) -> str:
     """Return the service signing secret.

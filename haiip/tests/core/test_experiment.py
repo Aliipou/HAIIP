@@ -11,15 +11,12 @@ Covers:
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from haiip.core.experiment import ExperimentTracker, Run, get_tracker
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def tracker():
@@ -32,6 +29,7 @@ def persistent_tracker(tmp_path):
 
 
 # ── 1. Run creation ───────────────────────────────────────────────────────────
+
 
 class TestRunCreation:
     def test_create_run_returns_run(self, tracker):
@@ -67,6 +65,7 @@ class TestRunCreation:
 
 # ── 2. Context manager ────────────────────────────────────────────────────────
 
+
 class TestContextManager:
     def test_start_run_sets_finished_on_exit(self, tracker):
         with tracker.start_run("exp") as run:
@@ -92,6 +91,7 @@ class TestContextManager:
 
 
 # ── 3. Logging params and metrics ─────────────────────────────────────────────
+
 
 class TestLogging:
     def test_log_param_stored(self, tracker):
@@ -138,6 +138,7 @@ class TestLogging:
 
 
 # ── 4. Querying ───────────────────────────────────────────────────────────────
+
 
 class TestQuerying:
     def test_list_runs_by_experiment(self, tracker):
@@ -210,6 +211,7 @@ class TestQuerying:
 
 # ── 5. Persistence ────────────────────────────────────────────────────────────
 
+
 class TestPersistence:
     def test_run_persisted_to_disk(self, persistent_tracker):
         with persistent_tracker.start_run("exp") as run:
@@ -249,6 +251,7 @@ class TestPersistence:
 
 
 # ── 6. Singleton ──────────────────────────────────────────────────────────────
+
 
 class TestSingleton:
     def test_get_tracker_returns_same_instance(self):

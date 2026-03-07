@@ -46,9 +46,11 @@ DUAL_KEY_OVERLAP_SECONDS = int(os.getenv("HAIIP_KEY_OVERLAP", "300"))  # 5 min
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class RotationEvent:
     """Record of a single rotation event."""
+
     secret_name: str
     old_version: str
     new_version: str
@@ -60,6 +62,7 @@ class RotationEvent:
 @dataclass
 class RotationState:
     """Live rotation state for a secret."""
+
     secret_name: str
     current_version: str = "unknown"
     last_checked: float = 0.0
@@ -90,7 +93,7 @@ class SecretsRotationManager:
         self._check_interval = check_interval
         self._lock = asyncio.Lock()
         self._state = RotationState(secret_name=self._secret_name)
-        self._db_engine: Any = None   # injected by caller if DB rotation needed
+        self._db_engine: Any = None  # injected by caller if DB rotation needed
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -195,6 +198,7 @@ class SecretsRotationManager:
 
             # 4. Clear secrets cache so next read gets fresh values
             from haiip.api.secrets import clear_cache
+
             clear_cache()
 
             self._state.current_version = new_version
@@ -220,12 +224,8 @@ class SecretsRotationManager:
         current_key = os.getenv("SECRET_KEY", "")
         if current_key and current_key != new_key:
             self._state.previous_key = current_key
-            self._state.previous_key_expires = (
-                time.monotonic() + DUAL_KEY_OVERLAP_SECONDS
-            )
-            logger.info(
-                "rotation.signing_key: overlap window %ds", DUAL_KEY_OVERLAP_SECONDS
-            )
+            self._state.previous_key_expires = time.monotonic() + DUAL_KEY_OVERLAP_SECONDS
+            logger.info("rotation.signing_key: overlap window %ds", DUAL_KEY_OVERLAP_SECONDS)
 
     async def _rotate_database(self, new_database_url: str) -> None:
         """Drain connection pool and recreate engine with new credentials."""
@@ -237,13 +237,11 @@ class SecretsRotationManager:
         try:
             # Dispose closes all idle connections; new connections use new URL
             await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    None, self._db_engine.sync_engine.dispose
-                ),
+                asyncio.get_event_loop().run_in_executor(None, self._db_engine.sync_engine.dispose),
                 timeout=DRAIN_TIMEOUT_SECONDS,
             )
             logger.info("rotation.db: pool drained, new connections will use updated URL")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "rotation.db: drain timed out after %ds — forcing pool close",
                 DRAIN_TIMEOUT_SECONDS,

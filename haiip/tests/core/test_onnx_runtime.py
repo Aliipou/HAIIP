@@ -13,16 +13,16 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 from haiip.core.onnx_runtime import (
+    _ORT_AVAILABLE,
     LATENCY_SLA_MS,
     ONNXAnomalyDetector,
     ONNXMaintenancePredictor,
-    _ORT_AVAILABLE,
 )
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ CLASS_NAMES = ["no_failure", "TWF", "HDF", "PWF", "OSF", "RNF"]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_mock_ort_session(output_shape: tuple[int, ...] | None = None) -> MagicMock:
     """Build a mock ORT InferenceSession that returns zeros."""
     session = MagicMock()
@@ -42,7 +43,7 @@ def _make_mock_ort_session(output_shape: tuple[int, ...] | None = None) -> Magic
 
     def run_side_effect(output_names: Any, inputs: dict[str, np.ndarray]) -> list[np.ndarray]:
         batch = next(iter(inputs.values()))
-        batch_size = batch.shape[0]
+        batch.shape[0]
         # Autoencoder: return reconstructed input (same shape)
         return [batch.copy()]
 
@@ -146,8 +147,16 @@ class TestONNXAnomalyDetectorWithMock:
 
     def test_predict_required_keys(self, detector: ONNXAnomalyDetector) -> None:
         result = detector.predict([1.0] * N_FEATURES)
-        required = {"label", "confidence", "anomaly_score", "reconstruction_error",
-                    "threshold", "latency_ms", "sla_ok", "explanation"}
+        required = {
+            "label",
+            "confidence",
+            "anomaly_score",
+            "reconstruction_error",
+            "threshold",
+            "latency_ms",
+            "sla_ok",
+            "explanation",
+        }
         assert required.issubset(result.keys())
 
     def test_predict_label_valid(self, detector: ONNXAnomalyDetector) -> None:
@@ -192,6 +201,7 @@ class TestONNXAnomalyDetectorWithMock:
 
     def test_sla_warning_logged(self, detector: ONNXAnomalyDetector) -> None:
         """SLA breach should be logged (we just verify sla_ok flag)."""
+
         # Inject a slow session
         def slow_run(output_names: Any, inputs: dict[str, np.ndarray]) -> list[np.ndarray]:
             time.sleep(0.001)  # tiny delay — won't actually breach SLA in most envs
@@ -224,7 +234,15 @@ class TestONNXAnomalyDetectorBenchmark:
 
     def test_benchmark_returns_required_keys(self, detector: ONNXAnomalyDetector) -> None:
         result = detector.benchmark(n_runs=5)
-        for key in ("mean_ms", "p50_ms", "p95_ms", "p99_ms", "max_ms", "sla_pass_rate", "n_runs"):
+        for key in (
+            "mean_ms",
+            "p50_ms",
+            "p95_ms",
+            "p99_ms",
+            "max_ms",
+            "sla_pass_rate",
+            "n_runs",
+        ):
             assert key in result
 
     def test_benchmark_n_runs(self, detector: ONNXAnomalyDetector) -> None:
@@ -333,8 +351,16 @@ class TestONNXMaintenancePredictorWithMock:
 
     def test_predict_required_keys(self, predictor: ONNXMaintenancePredictor) -> None:
         result = predictor.predict([1.0] * N_FEATURES)
-        required = {"label", "confidence", "failure_probability", "rul_cycles",
-                    "class_probabilities", "latency_ms", "sla_ok", "explanation"}
+        required = {
+            "label",
+            "confidence",
+            "failure_probability",
+            "rul_cycles",
+            "class_probabilities",
+            "latency_ms",
+            "sla_ok",
+            "explanation",
+        }
         assert required.issubset(result.keys())
 
     def test_predict_label_in_classes(self, predictor: ONNXMaintenancePredictor) -> None:
@@ -380,7 +406,13 @@ class TestONNXMaintenancePredictorWithMock:
 
     def test_sklearn_interface_parity(self, predictor: ONNXMaintenancePredictor) -> None:
         """Must have same base keys as sklearn MaintenancePredictor."""
-        sklearn_keys = {"label", "confidence", "failure_probability", "rul_cycles", "explanation"}
+        sklearn_keys = {
+            "label",
+            "confidence",
+            "failure_probability",
+            "rul_cycles",
+            "explanation",
+        }
         result = predictor.predict([1.0] * N_FEATURES)
         assert sklearn_keys.issubset(result.keys())
 
@@ -393,15 +425,21 @@ class TestONNXMaintenancePredictorWithMock:
 class TestONNXMaintenancePredictorBenchmark:
     @pytest.fixture()
     def predictor(self) -> ONNXMaintenancePredictor:
-        m = ONNXMaintenancePredictor(
-            "fake.onnx", n_features=N_FEATURES, class_names=CLASS_NAMES
-        )
+        m = ONNXMaintenancePredictor("fake.onnx", n_features=N_FEATURES, class_names=CLASS_NAMES)
         m._session = _make_mock_maintenance_session()
         return m
 
     def test_benchmark_keys(self, predictor: ONNXMaintenancePredictor) -> None:
         result = predictor.benchmark(n_runs=5)
-        for key in ("mean_ms", "p50_ms", "p95_ms", "p99_ms", "max_ms", "sla_pass_rate", "n_runs"):
+        for key in (
+            "mean_ms",
+            "p50_ms",
+            "p95_ms",
+            "p99_ms",
+            "max_ms",
+            "sla_pass_rate",
+            "n_runs",
+        ):
             assert key in result
 
     def test_benchmark_sla_rate_range(self, predictor: ONNXMaintenancePredictor) -> None:

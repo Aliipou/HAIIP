@@ -6,8 +6,7 @@ All values match the AI4I 2020 statistical distributions.
 
 from __future__ import annotations
 
-import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -16,17 +15,47 @@ _rng = np.random.default_rng(42)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def demo_machines() -> list[dict[str, Any]]:
     return [
-        {"machine_id": "CNC-001", "location": "Jakobstad", "status": "normal",   "uptime_pct": 98.2},
-        {"machine_id": "CNC-002", "location": "Jakobstad", "status": "warning",  "uptime_pct": 94.7},
-        {"machine_id": "LATHE-001","location": "Sundsvall", "status": "normal",  "uptime_pct": 99.1},
-        {"machine_id": "LATHE-002","location": "Sundsvall", "status": "anomaly", "uptime_pct": 87.3},
-        {"machine_id": "PRESS-001","location": "Narvik",    "status": "normal",  "uptime_pct": 96.8},
-        {"machine_id": "PRESS-002","location": "Narvik",    "status": "normal",  "uptime_pct": 97.4},
+        {
+            "machine_id": "CNC-001",
+            "location": "Jakobstad",
+            "status": "normal",
+            "uptime_pct": 98.2,
+        },
+        {
+            "machine_id": "CNC-002",
+            "location": "Jakobstad",
+            "status": "warning",
+            "uptime_pct": 94.7,
+        },
+        {
+            "machine_id": "LATHE-001",
+            "location": "Sundsvall",
+            "status": "normal",
+            "uptime_pct": 99.1,
+        },
+        {
+            "machine_id": "LATHE-002",
+            "location": "Sundsvall",
+            "status": "anomaly",
+            "uptime_pct": 87.3,
+        },
+        {
+            "machine_id": "PRESS-001",
+            "location": "Narvik",
+            "status": "normal",
+            "uptime_pct": 96.8,
+        },
+        {
+            "machine_id": "PRESS-002",
+            "location": "Narvik",
+            "status": "normal",
+            "uptime_pct": 97.4,
+        },
     ]
 
 
@@ -54,18 +83,26 @@ def demo_sensor_stream(machine_id: str = "CNC-001", n: int = 60) -> list[dict[st
         wear = min(wear + 0.5, 253.0)
         is_anomaly = i > n * 0.85 and machine_id == "LATHE-002"
 
-        readings.append({
-            "timestamp": (base_time + timedelta(seconds=i)).isoformat(),
-            "machine_id": machine_id,
-            "air_temperature": round(float(rng.normal(303.0 if is_anomaly else 300.0, 2.5)), 2),
-            "process_temperature": round(float(rng.normal(315.0 if is_anomaly else 310.0, 2.0)), 2),
-            "rotational_speed": round(float(rng.normal(1300.0 if is_anomaly else 1538.0, 200.0)), 1),
-            "torque": round(float(rng.normal(65.0 if is_anomaly else 40.0, 10.0)), 2),
-            "tool_wear": round(wear, 1),
-            "label": "anomaly" if is_anomaly else "normal",
-            "confidence": round(float(rng.uniform(0.82, 0.97)), 3),
-            "anomaly_score": round(float(rng.uniform(0.72, 0.95)), 3) if is_anomaly else round(float(rng.uniform(0.02, 0.18)), 3),
-        })
+        readings.append(
+            {
+                "timestamp": (base_time + timedelta(seconds=i)).isoformat(),
+                "machine_id": machine_id,
+                "air_temperature": round(float(rng.normal(303.0 if is_anomaly else 300.0, 2.5)), 2),
+                "process_temperature": round(
+                    float(rng.normal(315.0 if is_anomaly else 310.0, 2.0)), 2
+                ),
+                "rotational_speed": round(
+                    float(rng.normal(1300.0 if is_anomaly else 1538.0, 200.0)), 1
+                ),
+                "torque": round(float(rng.normal(65.0 if is_anomaly else 40.0, 10.0)), 2),
+                "tool_wear": round(wear, 1),
+                "label": "anomaly" if is_anomaly else "normal",
+                "confidence": round(float(rng.uniform(0.82, 0.97)), 3),
+                "anomaly_score": round(float(rng.uniform(0.72, 0.95)), 3)
+                if is_anomaly
+                else round(float(rng.uniform(0.02, 0.18)), 3),
+            }
+        )
 
     return readings
 
@@ -122,25 +159,31 @@ def demo_predictions(machine_id: str | None = None, n: int = 20) -> list[dict[st
     for i in range(n):
         mach = machine_id or machines[i % len(machines)]
         lbl = labels[i % len(labels)]
-        preds.append({
-            "id": f"pred-{i:04d}",
-            "machine_id": mach,
-            "model_type": "predictive_maintenance",
-            "prediction_label": lbl,
-            "confidence": round(float(rng.uniform(0.78, 0.99)), 3),
-            "anomaly_score": round(float(rng.uniform(0.05, 0.35 if lbl == "no_failure" else 0.85)), 3),
-            "rul_cycles": int(rng.integers(20, 350)) if lbl == "no_failure" else int(rng.integers(5, 40)),
-            "human_verified": i % 4 == 0,
-            "created_at": (base + timedelta(minutes=i * 3)).isoformat(),
-        })
+        preds.append(
+            {
+                "id": f"pred-{i:04d}",
+                "machine_id": mach,
+                "model_type": "predictive_maintenance",
+                "prediction_label": lbl,
+                "confidence": round(float(rng.uniform(0.78, 0.99)), 3),
+                "anomaly_score": round(
+                    float(rng.uniform(0.05, 0.35 if lbl == "no_failure" else 0.85)), 3
+                ),
+                "rul_cycles": int(rng.integers(20, 350))
+                if lbl == "no_failure"
+                else int(rng.integers(5, 40)),
+                "human_verified": i % 4 == 0,
+                "created_at": (base + timedelta(minutes=i * 3)).isoformat(),
+            }
+        )
 
     return preds
 
 
 def demo_rul_per_machine() -> dict[str, int]:
     return {
-        "CNC-001":  312,
-        "CNC-002":  22,
+        "CNC-001": 312,
+        "CNC-002": 22,
         "LATHE-001": 287,
         "LATHE-002": 8,
         "PRESS-001": 198,
@@ -150,30 +193,60 @@ def demo_rul_per_machine() -> dict[str, int]:
 
 def demo_drift_results() -> list[dict[str, Any]]:
     return [
-        {"feature": "air_temperature",      "psi": 0.04, "severity": "stable"},
-        {"feature": "process_temperature",  "psi": 0.08, "severity": "stable"},
-        {"feature": "rotational_speed",     "psi": 0.23, "severity": "drift"},
-        {"feature": "torque",               "psi": 0.13, "severity": "monitoring"},
-        {"feature": "tool_wear",            "psi": 0.06, "severity": "stable"},
+        {"feature": "air_temperature", "psi": 0.04, "severity": "stable"},
+        {"feature": "process_temperature", "psi": 0.08, "severity": "stable"},
+        {"feature": "rotational_speed", "psi": 0.23, "severity": "drift"},
+        {"feature": "torque", "psi": 0.13, "severity": "monitoring"},
+        {"feature": "tool_wear", "psi": 0.06, "severity": "stable"},
     ]
 
 
 def demo_audit_log() -> list[dict[str, Any]]:
     now = _now()
     return [
-        {"id": "alog-001", "action": "prediction.created", "resource_type": "Prediction",
-         "user_id": "usr-001", "tenant_id": "demo-sme", "details": '{"label":"no_failure","confidence":0.94}',
-         "created_at": (now - timedelta(minutes=1)).isoformat()},
-        {"id": "alog-002", "action": "feedback.submitted", "resource_type": "FeedbackLog",
-         "user_id": "usr-002", "tenant_id": "demo-sme", "details": '{"was_correct":false,"corrected_label":"HDF"}',
-         "created_at": (now - timedelta(minutes=5)).isoformat()},
-        {"id": "alog-003", "action": "alert.acknowledged", "resource_type": "Alert",
-         "user_id": "usr-001", "tenant_id": "demo-sme", "details": '{"alert_id":"alert-003"}',
-         "created_at": (now - timedelta(hours=2)).isoformat()},
-        {"id": "alog-004", "action": "model.retrained",    "resource_type": "ModelRegistry",
-         "user_id": "system",  "tenant_id": "demo-sme", "details": '{"trigger":"feedback_accuracy_drop","accuracy":0.77}',
-         "created_at": (now - timedelta(hours=4)).isoformat()},
-        {"id": "alog-005", "action": "document.ingested",  "resource_type": "Document",
-         "user_id": "usr-001", "tenant_id": "demo-sme", "details": '{"title":"CNC Maintenance Manual","chunks":14}',
-         "created_at": (now - timedelta(days=1)).isoformat()},
+        {
+            "id": "alog-001",
+            "action": "prediction.created",
+            "resource_type": "Prediction",
+            "user_id": "usr-001",
+            "tenant_id": "demo-sme",
+            "details": '{"label":"no_failure","confidence":0.94}',
+            "created_at": (now - timedelta(minutes=1)).isoformat(),
+        },
+        {
+            "id": "alog-002",
+            "action": "feedback.submitted",
+            "resource_type": "FeedbackLog",
+            "user_id": "usr-002",
+            "tenant_id": "demo-sme",
+            "details": '{"was_correct":false,"corrected_label":"HDF"}',
+            "created_at": (now - timedelta(minutes=5)).isoformat(),
+        },
+        {
+            "id": "alog-003",
+            "action": "alert.acknowledged",
+            "resource_type": "Alert",
+            "user_id": "usr-001",
+            "tenant_id": "demo-sme",
+            "details": '{"alert_id":"alert-003"}',
+            "created_at": (now - timedelta(hours=2)).isoformat(),
+        },
+        {
+            "id": "alog-004",
+            "action": "model.retrained",
+            "resource_type": "ModelRegistry",
+            "user_id": "system",
+            "tenant_id": "demo-sme",
+            "details": '{"trigger":"feedback_accuracy_drop","accuracy":0.77}',
+            "created_at": (now - timedelta(hours=4)).isoformat(),
+        },
+        {
+            "id": "alog-005",
+            "action": "document.ingested",
+            "resource_type": "Document",
+            "user_id": "usr-001",
+            "tenant_id": "demo-sme",
+            "details": '{"title":"CNC Maintenance Manual","chunks":14}',
+            "created_at": (now - timedelta(days=1)).isoformat(),
+        },
     ]

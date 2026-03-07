@@ -62,21 +62,30 @@ def render() -> None:
         with st.spinner("Searching knowledge base…"):
             answer_data = _query(question.strip(), machine_filter.strip() or None, top_k)
 
-        st.session_state["rag_history"].insert(0, {
-            "question": question,
-            "answer": answer_data.get("answer", "No answer available."),
-            "sources": answer_data.get("sources", []),
-            "confidence": answer_data.get("confidence", 0.0),
-        })
+        st.session_state["rag_history"].insert(
+            0,
+            {
+                "question": question,
+                "answer": answer_data.get("answer", "No answer available."),
+                "sources": answer_data.get("sources", []),
+                "confidence": answer_data.get("confidence", 0.0),
+            },
+        )
 
     # ── Document ingestion ────────────────────────────────────────────────────
     with st.expander("📄 Ingest document into knowledge base"):
         with st.form("ingest_form"):
             doc_title = st.text_input("Document title", placeholder="CNC-001 Maintenance Manual v3")
-            doc_source = st.selectbox("Source type", ["manual", "iso_standard", "fault_report", "sop", "other"])
+            doc_source = st.selectbox(
+                "Source type",
+                ["manual", "iso_standard", "fault_report", "sop", "other"],
+            )
             doc_machine = st.text_input("Link to machine (optional)", placeholder="CNC-001")
-            doc_content = st.text_area("Document content", height=200,
-                                       placeholder="Paste the document text here…")
+            doc_content = st.text_area(
+                "Document content",
+                height=200,
+                placeholder="Paste the document text here…",
+            )
             ingest_btn = st.form_submit_button("📥 Ingest document", use_container_width=True)
 
         if ingest_btn:
@@ -106,7 +115,7 @@ def render() -> None:
                 <div style="background:#242C3E; border:1px solid #2D3748; border-radius:12px 12px 4px 12px;
                             padding:0.75rem 1rem; margin-bottom:0.4rem; max-width:85%; margin-left:auto;">
                     <div style="font-size:0.75rem; color:#718096; margin-bottom:4px;">YOU</div>
-                    <div style="color:#E2E8F0;">{entry['question']}</div>
+                    <div style="color:#E2E8F0;">{entry["question"]}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -124,10 +133,10 @@ def render() -> None:
                     <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                         <span style="font-size:0.75rem; color:#00D4FF;">⚙️ HAIIP</span>
                         <span style="font-size:0.72rem; color:{conf_color};">
-                            Confidence: {conf*100:.0f}%
+                            Confidence: {conf * 100:.0f}%
                         </span>
                     </div>
-                    <div style="color:#E2E8F0; line-height:1.6;">{entry['answer']}</div>
+                    <div style="color:#E2E8F0; line-height:1.6;">{entry["answer"]}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -138,11 +147,11 @@ def render() -> None:
                 with st.expander(f"📚 {len(entry['sources'])} source(s) retrieved"):
                     for src in entry["sources"]:
                         st.markdown(
-                            f"**{src.get('title','—')}** "
-                            f"<span style='color:#718096;'>({src.get('source','—')})</span> "
-                            f"· score: `{src.get('score',0):.3f}`<br>"
+                            f"**{src.get('title', '—')}** "
+                            f"<span style='color:#718096;'>({src.get('source', '—')})</span> "
+                            f"· score: `{src.get('score', 0):.3f}`<br>"
                             f"<span style='color:#A0AEC0; font-size:0.8rem;'>"
-                            f"{src.get('excerpt','')}</span>",
+                            f"{src.get('excerpt', '')}</span>",
                             unsafe_allow_html=True,
                         )
 
@@ -153,7 +162,8 @@ def render() -> None:
 
 def _query(question: str, machine_id: str | None, top_k: int) -> dict:
     if is_demo():
-        from haiip.core.rag import Document, RAGEngine
+        from haiip.core.rag import RAGEngine
+
         engine = RAGEngine(top_k=top_k)
         engine.initialize()
         _seed_demo_docs(engine)
@@ -172,7 +182,10 @@ def _query(question: str, machine_id: str | None, top_k: int) -> dict:
 
 def _ingest(title: str, content: str, source: str, machine_id: str | None) -> dict | None:
     if is_demo():
-        return {"chunks_created": max(1, len(content.split()) // 100), "total_documents": 5}
+        return {
+            "chunks_created": max(1, len(content.split()) // 100),
+            "total_documents": 5,
+        }
     payload: dict = {"title": title, "content": content, "source": source}
     if machine_id:
         payload["machine_id"] = machine_id
@@ -182,6 +195,7 @@ def _ingest(title: str, content: str, source: str, machine_id: str | None) -> di
 def _seed_demo_docs(engine) -> None:
     """Seed a few demo documents into the RAG engine."""
     from haiip.core.rag import Document
+
     if engine.document_count == 0:
         demo_docs = [
             Document(

@@ -25,10 +25,10 @@ import time
 import pytest
 from httpx import AsyncClient
 
-from haiip.api.models import Tenant, User
-
+from haiip.api.models import Tenant
 
 # ── A01: Broken Access Control / RBAC ────────────────────────────────────────
+
 
 class TestBrokenAccessControl:
     @pytest.mark.asyncio
@@ -39,16 +39,12 @@ class TestBrokenAccessControl:
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_list_users(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_list_users(self, client: AsyncClient, operator_headers: dict):
         resp = await client.get("/api/v1/admin/users", headers=operator_headers)
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_operator_cannot_create_users(
-        self, client: AsyncClient, operator_headers: dict
-    ):
+    async def test_operator_cannot_create_users(self, client: AsyncClient, operator_headers: dict):
         resp = await client.post(
             "/api/v1/admin/users",
             json={
@@ -109,15 +105,18 @@ class TestBrokenAccessControl:
 
 # ── A02: Cryptographic Failures ───────────────────────────────────────────────
 
+
 class TestCryptographicFailures:
     def test_passwords_are_bcrypt_hashed(self):
         from haiip.api.auth import hash_password
+
         h = hash_password("MyPassword123!")
         # bcrypt hashes start with $2b$
         assert h.startswith("$2b$")
 
     def test_hash_is_not_plaintext(self):
         from haiip.api.auth import hash_password
+
         pwd = "MyPassword123!"
         h = hash_password(pwd)
         assert pwd not in h
@@ -125,6 +124,7 @@ class TestCryptographicFailures:
     def test_bcrypt_cost_factor(self):
         """Ensure cost factor is at least 10 (security minimum)."""
         from haiip.api.auth import hash_password
+
         h = hash_password("test")
         # Format: $2b$<cost>$...
         cost = int(h.split("$")[2])
@@ -132,24 +132,28 @@ class TestCryptographicFailures:
 
     def test_password_verify_correct(self):
         from haiip.api.auth import hash_password, verify_password
+
         pwd = "CorrectHorseBatteryStaple"
         h = hash_password(pwd)
         assert verify_password(pwd, h) is True
 
     def test_password_verify_wrong(self):
         from haiip.api.auth import hash_password, verify_password
+
         h = hash_password("RightPassword!")
         assert verify_password("WrongPassword!", h) is False
 
     def test_access_token_is_signed(self):
         """Access token must have 3 segments (header.payload.signature)."""
         from haiip.api.auth import create_access_token
+
         token = create_access_token("usr-001", "tid-001", "admin")
         parts = token.split(".")
         assert len(parts) == 3
 
     def test_access_token_contains_no_plaintext_password(self):
         from haiip.api.auth import create_access_token
+
         token = create_access_token("usr-001", "tid-001", "admin")
         # Decode payload (without verification for inspection)
         payload_b64 = token.split(".")[1]
@@ -161,12 +165,14 @@ class TestCryptographicFailures:
 
     def test_refresh_token_different_from_access_token(self):
         from haiip.api.auth import create_access_token, create_refresh_token
+
         access = create_access_token("usr-001", "tid-001", "admin")
         refresh = create_refresh_token("usr-001", "tid-001")
         assert access != refresh
 
 
 # ── A03: Injection ────────────────────────────────────────────────────────────
+
 
 class TestInjectionPrevention:
     @pytest.mark.asyncio
@@ -186,9 +192,7 @@ class TestInjectionPrevention:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_sql_injection_in_alert_title(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_sql_injection_in_alert_title(self, client: AsyncClient, admin_headers: dict):
         resp = await client.post(
             "/api/v1/alerts",
             json={
@@ -202,9 +206,7 @@ class TestInjectionPrevention:
         assert resp.status_code != 500
 
     @pytest.mark.asyncio
-    async def test_xss_in_machine_id_not_executed(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_xss_in_machine_id_not_executed(self, client: AsyncClient, admin_headers: dict):
         """XSS payload in machine_id should be stored as literal text."""
         xss = "<script>alert('xss')</script>"
         resp = await client.post(
@@ -221,9 +223,7 @@ class TestInjectionPrevention:
             assert "<script>" not in resp.text.replace(xss, "")
 
     @pytest.mark.asyncio
-    async def test_json_injection_in_notes_field(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_json_injection_in_notes_field(self, client: AsyncClient, admin_headers: dict):
         """JSON injection in notes field should not corrupt API response."""
         resp = await client.post(
             "/api/v1/feedback",
@@ -243,6 +243,7 @@ class TestInjectionPrevention:
 
 # ── A07: Authentication Failures ─────────────────────────────────────────────
 
+
 class TestAuthenticationSecurity:
     @pytest.mark.asyncio
     async def test_jwt_with_wrong_signature_rejected(self, client: AsyncClient):
@@ -250,17 +251,21 @@ class TestAuthenticationSecurity:
         import base64
 
         # Create a valid-looking JWT but with a different signature
-        header = base64.urlsafe_b64encode(
-            b'{"alg":"HS256","typ":"JWT"}'
-        ).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps({
-                "sub": "usr-001",
-                "tid": "tenant-001",
-                "role": "admin",
-                "exp": int(time.time()) + 3600,
-            }).encode()
-        ).rstrip(b"=").decode()
+        header = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').rstrip(b"=").decode()
+        payload = (
+            base64.urlsafe_b64encode(
+                json.dumps(
+                    {
+                        "sub": "usr-001",
+                        "tid": "tenant-001",
+                        "role": "admin",
+                        "exp": int(time.time()) + 3600,
+                    }
+                ).encode()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
         fake_sig = base64.urlsafe_b64encode(b"fakesignature").rstrip(b"=").decode()
         tampered_token = f"{header}.{payload}.{fake_sig}"
 
@@ -271,9 +276,7 @@ class TestAuthenticationSecurity:
         assert resp.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_jwt_with_tampered_role_rejected(
-        self, client: AsyncClient, operator_token: str
-    ):
+    async def test_jwt_with_tampered_role_rejected(self, client: AsyncClient, operator_token: str):
         """Tamper with JWT payload to escalate role — must be rejected."""
         parts = operator_token.split(".")
         # Decode payload
@@ -282,9 +285,7 @@ class TestAuthenticationSecurity:
         payload = json.loads(base64.urlsafe_b64decode(padded))
         # Escalate to admin
         payload["role"] = "admin"
-        new_payload = base64.urlsafe_b64encode(
-            json.dumps(payload).encode()
-        ).rstrip(b"=").decode()
+        new_payload = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
         tampered = f"{parts[0]}.{new_payload}.{parts[2]}"
 
         resp = await client.get(
@@ -296,6 +297,7 @@ class TestAuthenticationSecurity:
 
     def test_access_token_has_expiry(self):
         from haiip.api.auth import create_access_token, decode_access_token
+
         token = create_access_token("usr-001", "tid-001", "admin")
         payload = decode_access_token(token)
         assert "exp" in payload
@@ -303,12 +305,14 @@ class TestAuthenticationSecurity:
 
     def test_refresh_token_has_expiry(self):
         from haiip.api.auth import create_refresh_token, decode_refresh_token
+
         token = create_refresh_token("usr-001", "tid-001")
         payload = decode_refresh_token(token)
         assert "exp" in payload
 
     def test_decode_invalid_token_raises(self):
         from haiip.api.auth import TokenError, decode_access_token
+
         with pytest.raises(TokenError):
             decode_access_token("invalid.token.here")
 
@@ -332,6 +336,7 @@ class TestAuthenticationSecurity:
 
 
 # ── Information Disclosure ────────────────────────────────────────────────────
+
 
 class TestInformationDisclosure:
     @pytest.mark.asyncio
@@ -380,11 +385,10 @@ class TestInformationDisclosure:
 
 # ── Mass Assignment Prevention ────────────────────────────────────────────────
 
+
 class TestMassAssignment:
     @pytest.mark.asyncio
-    async def test_cannot_set_role_via_register(
-        self, client: AsyncClient, test_tenant: Tenant
-    ):
+    async def test_cannot_set_role_via_register(self, client: AsyncClient, test_tenant: Tenant):
         """Registration endpoint must not allow setting admin role directly."""
         resp = await client.post(
             "/api/v1/auth/register",

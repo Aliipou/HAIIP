@@ -24,11 +24,12 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
@@ -139,7 +140,7 @@ class RetrainTrigger:
             (should_trigger, reason) — reason is None when no trigger.
         """
         with self._lock:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Cooldown guard
             if self._last_trigger is not None:
@@ -152,9 +153,10 @@ class RetrainTrigger:
             # Drift trigger
             if drift_results:
                 n_drifted = sum(
-                    1 for r in drift_results
-                    if getattr(r, "severity", None) == "drift" or
-                       (isinstance(r, dict) and r.get("severity") == "drift")
+                    1
+                    for r in drift_results
+                    if getattr(r, "severity", None) == "drift"
+                    or (isinstance(r, dict) and r.get("severity") == "drift")
                 )
                 if n_drifted >= self.drift_feature_threshold:
                     reasons.append(TriggerReason.DRIFT_CRITICAL)
@@ -244,7 +246,7 @@ class ModelEvaluator:
             auc_roc=round(auc, 4),
             anomaly_precision=round(prec, 4),
             anomaly_recall=round(rec, 4),
-            evaluated_at=datetime.now(timezone.utc).isoformat(),
+            evaluated_at=datetime.now(UTC).isoformat(),
             n_samples=len(X_val),
         )
 
@@ -298,7 +300,7 @@ class ModelEvaluator:
             accuracy=round(acc, 4),
             auc_roc=round(auc, 4),
             rmse_rul=round(rmse, 2) if rmse != float("inf") else float("inf"),
-            evaluated_at=datetime.now(timezone.utc).isoformat(),
+            evaluated_at=datetime.now(UTC).isoformat(),
             n_samples=len(X_val),
         )
 
@@ -348,7 +350,9 @@ class ChampionChallenger:
             self._champion_metrics = metrics
             logger.info(
                 "Champion registered: F1=%.4f, AUC=%.4f, n=%d",
-                metrics.f1_macro, metrics.auc_roc, metrics.n_samples,
+                metrics.f1_macro,
+                metrics.auc_roc,
+                metrics.n_samples,
             )
 
     def propose_challenger(self, model: Any, metrics: ModelMetrics) -> None:
@@ -358,7 +362,9 @@ class ChampionChallenger:
             self._challenger_metrics = metrics
             logger.info(
                 "Challenger proposed: F1=%.4f, AUC=%.4f, n=%d",
-                metrics.f1_macro, metrics.auc_roc, metrics.n_samples,
+                metrics.f1_macro,
+                metrics.auc_roc,
+                metrics.n_samples,
             )
 
     def evaluate_promotion(self) -> tuple[bool, str]:
@@ -394,11 +400,13 @@ class ChampionChallenger:
 
     def _promote(self) -> None:
         """Replace champion with challenger (no lock needed — caller holds it)."""
-        self._promotion_history.append({
-            "promoted_at": datetime.now(timezone.utc).isoformat(),
-            "prev_champion_f1": self._champion_metrics.f1_macro,
-            "challenger_f1": self._challenger_metrics.f1_macro,
-        })
+        self._promotion_history.append(
+            {
+                "promoted_at": datetime.now(UTC).isoformat(),
+                "prev_champion_f1": self._champion_metrics.f1_macro,
+                "challenger_f1": self._challenger_metrics.f1_macro,
+            }
+        )
         self._champion = self._challenger
         self._champion_metrics = self._challenger_metrics
         self._challenger = None
@@ -453,7 +461,7 @@ class AutoRetrainPipeline:
     def __init__(
         self,
         tenant_id: str = "default",
-        artifact_dir: str | Path = "/tmp/haiip_artifacts",
+        artifact_dir: str | Path = "/tmp/haiip_artifacts",  # noqa: S108  # nosec B108
         trigger: RetrainTrigger | None = None,
         cc: ChampionChallenger | None = None,
         train_fn: Callable[[np.ndarray], Any] | None = None,
@@ -489,7 +497,8 @@ class AutoRetrainPipeline:
         self.cc.register_champion(model, metrics)
         logger.info(
             "Pipeline champion registered for tenant=%s: F1=%.4f",
-            self.tenant_id, metrics.f1_macro,
+            self.tenant_id,
+            metrics.f1_macro,
         )
         return metrics
 
@@ -552,7 +561,7 @@ class AutoRetrainPipeline:
         event = RetrainEvent(
             tenant_id=self.tenant_id,
             trigger_reason=trigger_reason,
-            triggered_at=datetime.now(timezone.utc).isoformat(),
+            triggered_at=datetime.now(UTC).isoformat(),
             status=RetrainStatus.TRIGGERED,
             drift_severity=drift_severity,
             n_training_samples=len(X_new),
@@ -605,6 +614,7 @@ class AutoRetrainPipeline:
                 if promoted:
                     try:
                         from haiip.core.model_registry import register_model_version
+
                         artifact_path = str(self.artifact_dir / "anomaly")
                         version = register_model_version(
                             tenant_id=self.tenant_id,
@@ -625,6 +635,7 @@ class AutoRetrainPipeline:
                 # Emit retraining metric
                 try:
                     from haiip.api.ml_metrics import record_retrain
+
                     record_retrain(
                         tenant_id=self.tenant_id,
                         trigger_reason=trigger_reason.value,
@@ -634,14 +645,14 @@ class AutoRetrainPipeline:
                     pass
 
                 event.status = RetrainStatus.COMPLETE
-                event.completed_at = datetime.now(timezone.utc).isoformat()
+                event.completed_at = datetime.now(UTC).isoformat()
                 self._status = RetrainStatus.IDLE
 
         except Exception as exc:
             logger.exception("AutoRetrainPipeline failed: %s", exc)
             event.status = RetrainStatus.FAILED
             event.error = str(exc)
-            event.completed_at = datetime.now(timezone.utc).isoformat()
+            event.completed_at = datetime.now(UTC).isoformat()
             self._status = RetrainStatus.IDLE
 
         self._events.append(event)
@@ -658,7 +669,10 @@ class AutoRetrainPipeline:
         try:
             from haiip.core.anomaly import AnomalyDetector
 
-            logger.info("AutoRetrainPipeline: fallback IsolationForest retraining on %d samples", len(X))
+            logger.info(
+                "AutoRetrainPipeline: fallback IsolationForest retraining on %d samples",
+                len(X),
+            )
             detector = AnomalyDetector(contamination=0.05, random_state=42)
             detector.fit(X)
             return detector
@@ -704,7 +718,9 @@ class AutoRetrainPipeline:
             "tenant_id": self.tenant_id,
             "status": self._status.value,
             "total_retrain_events": len(self._events),
-            "successful_retrain": sum(1 for e in self._events if e.status == RetrainStatus.COMPLETE),
+            "successful_retrain": sum(
+                1 for e in self._events if e.status == RetrainStatus.COMPLETE
+            ),
             "promotions": sum(1 for e in self._events if e.promoted),
             "champion_f1": self.cc.champion_metrics.f1_macro,
             "champion_auc": self.cc.champion_metrics.auc_roc,

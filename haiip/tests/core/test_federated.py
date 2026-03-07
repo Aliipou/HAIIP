@@ -24,12 +24,11 @@ from haiip.core.federated import (
     FederatedResult,
     FederatedServer,
     NodeProfile,
-    RoundResult,
     SMENode,
 )
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def default_profiles() -> list[NodeProfile]:
@@ -66,6 +65,7 @@ def minimal_learner(minimal_profiles: list[NodeProfile]) -> FederatedLearner:
 
 # ── NodeProfile + FederatedNode ────────────────────────────────────────────────
 
+
 class TestFederatedNode:
     def test_data_shape(self, minimal_profiles: list[NodeProfile]) -> None:
         node = FederatedNode(profile=minimal_profiles[0], random_state=0)
@@ -83,14 +83,14 @@ class TestFederatedNode:
         assert set(node.y).issubset({0.0, 1.0})
 
     def test_local_train_returns_params(self, minimal_profiles: list[NodeProfile]) -> None:
-        node   = FederatedNode(profile=minimal_profiles[0], random_state=0)
+        node = FederatedNode(profile=minimal_profiles[0], random_state=0)
         params = node.local_train(global_params=None, local_epochs=1)
         assert "n_estimators" in params
         assert "learning_rate" in params
         assert "n_samples" in params
 
     def test_local_train_with_global_params(self, minimal_profiles: list[NodeProfile]) -> None:
-        node   = FederatedNode(profile=minimal_profiles[0], random_state=0)
+        node = FederatedNode(profile=minimal_profiles[0], random_state=0)
         params = node.local_train(
             global_params={"n_estimators": 30, "learning_rate": 0.05},
             local_epochs=2,
@@ -127,6 +127,7 @@ class TestFederatedNode:
 
 # ── FederatedServer ────────────────────────────────────────────────────────────
 
+
 class TestFederatedServer:
     def test_fedavg_weighted_by_samples(self, minimal_profiles: list[NodeProfile]) -> None:
         nodes = [FederatedNode(p, random_state=i) for i, p in enumerate(minimal_profiles)]
@@ -141,16 +142,22 @@ class TestFederatedServer:
         expected = int(round((100 * 200 + 200 * 400) / 600))
         assert agg["n_estimators"] == expected
 
-    def test_fedavg_learning_rate_weighted(
-        self, minimal_profiles: list[NodeProfile]
-    ) -> None:
+    def test_fedavg_learning_rate_weighted(self, minimal_profiles: list[NodeProfile]) -> None:
         nodes = [FederatedNode(p, random_state=i) for i, p in enumerate(minimal_profiles)]
         server = FederatedServer(nodes=nodes, random_state=42)
         params = [
-            {"n_estimators": 50, "learning_rate": 0.1, "n_samples": 100,
-             "feature_importances": [0.2, 0.2, 0.2, 0.2, 0.2]},
-            {"n_estimators": 50, "learning_rate": 0.3, "n_samples": 100,
-             "feature_importances": [0.2, 0.2, 0.2, 0.2, 0.2]},
+            {
+                "n_estimators": 50,
+                "learning_rate": 0.1,
+                "n_samples": 100,
+                "feature_importances": [0.2, 0.2, 0.2, 0.2, 0.2],
+            },
+            {
+                "n_estimators": 50,
+                "learning_rate": 0.3,
+                "n_samples": 100,
+                "feature_importances": [0.2, 0.2, 0.2, 0.2, 0.2],
+            },
         ]
         agg = server.fedavg(params)
         assert agg["learning_rate"] == pytest.approx(0.2, abs=0.001)
@@ -166,6 +173,7 @@ class TestFederatedServer:
 
 
 # ── FederatedLearner (full loop) ───────────────────────────────────────────────
+
 
 class TestFederatedLearner:
     def test_result_structure(self, minimal_learner: FederatedLearner) -> None:
@@ -193,9 +201,7 @@ class TestFederatedLearner:
         result = minimal_learner.run(n_rounds=2, local_epochs=1)
         assert result.privacy_preserved is True
 
-    def test_centralized_f1_is_upper_bound(
-        self, minimal_learner: FederatedLearner
-    ) -> None:
+    def test_centralized_f1_is_upper_bound(self, minimal_learner: FederatedLearner) -> None:
         result = minimal_learner.run(n_rounds=5, local_epochs=2)
         # Federated should be within 15% of centralized (acceptable gap)
         assert result.federated_gap <= 0.15, (
@@ -236,6 +242,7 @@ class TestFederatedLearner:
 
     def test_experiment_id_is_uuid(self, minimal_learner: FederatedLearner) -> None:
         import uuid
+
         result = minimal_learner.run(n_rounds=1, local_epochs=1)
         uuid.UUID(result.experiment_id)  # should not raise
 
@@ -244,6 +251,6 @@ class TestFederatedLearner:
         result = minimal_learner.run(n_rounds=6, local_epochs=2)
         if len(result.rounds) >= 3:
             early_f1 = result.rounds[0].global_f1
-            late_f1  = result.rounds[-1].global_f1
+            late_f1 = result.rounds[-1].global_f1
             # Allow 10% regression — GBT can slightly fluctuate
             assert late_f1 >= early_f1 - 0.10

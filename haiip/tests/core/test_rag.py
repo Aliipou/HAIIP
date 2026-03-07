@@ -16,17 +16,38 @@ def engine() -> RAGEngine:
 @pytest.fixture
 def engine_with_docs(engine: RAGEngine) -> RAGEngine:
     docs = [
-        Document(content="HDF failure occurs when cooling is insufficient.", title="HDF Guide", source="manual"),
-        Document(content="Tool wear failure TWF happens at high tool wear values.", title="TWF Guide", source="manual"),
-        Document(content="Power failure PWF is caused by torque * speed product exceeding limit.", title="PWF Guide", source="manual"),
-        Document(content="Overstrain failure OSF is caused by excessive torque.", title="OSF Guide", source="manual"),
-        Document(content="Normal operation: air temp ~300K, process temp ~310K.", title="Normal Ops", source="sop"),
+        Document(
+            content="HDF failure occurs when cooling is insufficient.",
+            title="HDF Guide",
+            source="manual",
+        ),
+        Document(
+            content="Tool wear failure TWF happens at high tool wear values.",
+            title="TWF Guide",
+            source="manual",
+        ),
+        Document(
+            content="Power failure PWF is caused by torque * speed product exceeding limit.",
+            title="PWF Guide",
+            source="manual",
+        ),
+        Document(
+            content="Overstrain failure OSF is caused by excessive torque.",
+            title="OSF Guide",
+            source="manual",
+        ),
+        Document(
+            content="Normal operation: air temp ~300K, process temp ~310K.",
+            title="Normal Ops",
+            source="sop",
+        ),
     ]
     engine.add_documents(docs)
     return engine
 
 
 # ── Document ──────────────────────────────────────────────────────────────────
+
 
 def test_document_id_is_stable():
     d = Document(content="hello world", title="Test")
@@ -41,6 +62,7 @@ def test_document_id_differs_for_different_content():
 
 # ── RAGEngine initialization ──────────────────────────────────────────────────
 
+
 def test_engine_initializes():
     e = RAGEngine()
     e.initialize()
@@ -54,6 +76,7 @@ def test_engine_empty_document_count():
 
 
 # ── Add documents ─────────────────────────────────────────────────────────────
+
 
 def test_add_documents(engine):
     docs = [Document(content="Test doc", title="Doc 1")]
@@ -76,6 +99,7 @@ def test_add_text_chunks(engine):
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
+
 
 def test_query_empty_kb(engine):
     result = engine.query("What causes HDF failure?")
@@ -100,16 +124,20 @@ def test_query_sources_have_required_fields(engine_with_docs):
 
 
 def test_query_with_machine_filter(engine):
-    engine.add_document(Document(
-        content="CNC-001 specific maintenance procedure.",
-        title="CNC-001 Manual",
-        machine_id="CNC-001",
-    ))
-    engine.add_document(Document(
-        content="CNC-002 specific maintenance procedure.",
-        title="CNC-002 Manual",
-        machine_id="CNC-002",
-    ))
+    engine.add_document(
+        Document(
+            content="CNC-001 specific maintenance procedure.",
+            title="CNC-001 Manual",
+            machine_id="CNC-001",
+        )
+    )
+    engine.add_document(
+        Document(
+            content="CNC-002 specific maintenance procedure.",
+            title="CNC-002 Manual",
+            machine_id="CNC-002",
+        )
+    )
     result = engine.query("maintenance procedure", machine_id="CNC-001")
     machine_sources = [s for s in result.sources if "CNC-001" in s.get("title", "")]
     assert len(machine_sources) >= 1
@@ -128,12 +156,15 @@ def test_query_llm_not_used_without_key(engine_with_docs):
 
 # ── Persistence ───────────────────────────────────────────────────────────────
 
+
 def test_save_and_load_documents(tmp_path):
     e1 = RAGEngine(persist_dir=tmp_path)
     e1.initialize()
-    e1.add_documents([
-        Document(content="Test content for persistence", title="Test Doc"),
-    ])
+    e1.add_documents(
+        [
+            Document(content="Test content for persistence", title="Test Doc"),
+        ]
+    )
     e1._save_index()
 
     e2 = RAGEngine(persist_dir=tmp_path)
@@ -142,6 +173,7 @@ def test_save_and_load_documents(tmp_path):
 
 
 # ── TF-IDF fallback ───────────────────────────────────────────────────────────
+
 
 def test_tfidf_embed_shape():
     texts = ["hello world", "foo bar baz"]
@@ -157,6 +189,7 @@ def test_tfidf_embed_normalized():
 
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
+
 
 def test_chunk_text():
     text = "word " * 1000

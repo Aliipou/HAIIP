@@ -3,26 +3,25 @@
 from __future__ import annotations
 
 import json
-import threading
 import time
-from dataclasses import asdict
-from typing import Any
-from unittest.mock import MagicMock, call, patch
-
-import pytest
-
+from unittest.mock import MagicMock, patch
 
 # ── SensorMessage ─────────────────────────────────────────────────────────────
 
-class TestSensorMessage:
 
+class TestSensorMessage:
     def _msg(self, **kwargs):
         from haiip.streaming.schema import SensorMessage
-        defaults = dict(
-            machine_id="M001", tenant_id="t1",
-            air_temperature=300.0, process_temperature=310.0,
-            rotational_speed=1538.0, torque=40.0, tool_wear=100.0,
-        )
+
+        defaults = {
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+        }
         defaults.update(kwargs)
         return SensorMessage(**defaults)
 
@@ -34,6 +33,7 @@ class TestSensorMessage:
 
     def test_from_dict_roundtrip(self):
         from haiip.streaming.schema import SensorMessage
+
         msg = self._msg()
         d = msg.to_dict()
         restored = SensorMessage.from_dict(d)
@@ -48,10 +48,15 @@ class TestSensorMessage:
 
     def test_from_dict_default_timestamp(self):
         from haiip.streaming.schema import SensorMessage
+
         d = {
-            "machine_id": "M002", "tenant_id": "t2",
-            "air_temperature": "301.5", "process_temperature": "311.0",
-            "rotational_speed": "1600.0", "torque": "42.0", "tool_wear": "50.0",
+            "machine_id": "M002",
+            "tenant_id": "t2",
+            "air_temperature": "301.5",
+            "process_temperature": "311.0",
+            "rotational_speed": "1600.0",
+            "torque": "42.0",
+            "tool_wear": "50.0",
         }
         msg = SensorMessage.from_dict(d)
         assert msg.air_temperature == 301.5
@@ -59,6 +64,7 @@ class TestSensorMessage:
 
     def test_from_dict_custom_source(self):
         from haiip.streaming.schema import SensorMessage
+
         base = self._msg().to_dict()
         base["source"] = "mqtt"
         msg = SensorMessage.from_dict(base)
@@ -71,20 +77,25 @@ class TestSensorMessage:
 
 # ── PredictionMessage ─────────────────────────────────────────────────────────
 
-class TestPredictionMessage:
 
+class TestPredictionMessage:
     def _pred_dict(self, **kwargs):
-        d = dict(
-            machine_id="M001", tenant_id="t1",
-            prediction_id="pred-001", label="normal",
-            confidence=0.9, anomaly_score=0.1,
-            explanation={}, sensor_timestamp=time.time(),
-        )
+        d = {
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "prediction_id": "pred-001",
+            "label": "normal",
+            "confidence": 0.9,
+            "anomaly_score": 0.1,
+            "explanation": {},
+            "sensor_timestamp": time.time(),
+        }
         d.update(kwargs)
         return d
 
     def test_from_dict_roundtrip(self):
         from haiip.streaming.schema import PredictionMessage
+
         d = self._pred_dict()
         msg = PredictionMessage.from_dict(d)
         assert msg.label == "normal"
@@ -92,18 +103,21 @@ class TestPredictionMessage:
 
     def test_to_dict_keys(self):
         from haiip.streaming.schema import PredictionMessage
+
         msg = PredictionMessage.from_dict(self._pred_dict())
         d = msg.to_dict()
         assert "label" in d and "confidence" in d and "anomaly_score" in d
 
     def test_shap_values_optional(self):
         from haiip.streaming.schema import PredictionMessage
+
         d = self._pred_dict(shap_values={"air_temperature": 0.12})
         msg = PredictionMessage.from_dict(d)
         assert msg.shap_values is not None
 
     def test_economic_action_optional(self):
         from haiip.streaming.schema import PredictionMessage
+
         d = self._pred_dict(economic_action="REPAIR_NOW")
         msg = PredictionMessage.from_dict(d)
         assert msg.economic_action == "REPAIR_NOW"
@@ -111,13 +125,16 @@ class TestPredictionMessage:
 
 # ── AlertMessage ──────────────────────────────────────────────────────────────
 
-class TestAlertMessage:
 
+class TestAlertMessage:
     def test_to_dict_has_severity(self):
         from haiip.streaming.schema import AlertMessage
+
         alert = AlertMessage(
-            machine_id="M001", tenant_id="t1",
-            alert_type="anomaly_detected", severity="critical",
+            machine_id="M001",
+            tenant_id="t1",
+            alert_type="anomaly_detected",
+            severity="critical",
             message="Machine anomaly detected",
         )
         d = alert.to_dict()
@@ -126,38 +143,46 @@ class TestAlertMessage:
 
 # ── SensorProducer ────────────────────────────────────────────────────────────
 
-class TestSensorProducer:
 
+class TestSensorProducer:
     def test_producer_no_kafka_is_noop(self):
         """Without confluent-kafka installed, publish is a no-op."""
         with patch.dict("sys.modules", {"confluent_kafka": None}):
             # Reset the module-level cache
             import haiip.streaming.kafka_producer as kp
+
             kp._confluent_available = None
 
             from haiip.streaming.kafka_producer import SensorProducer
+
             producer = SensorProducer()
             assert producer._producer is None
             # Should not raise
             producer.flush()
 
     def test_publish_sensor_calls_produce(self):
-        from haiip.streaming.schema import SensorMessage
         from haiip.streaming.kafka_producer import SensorProducer
+        from haiip.streaming.schema import SensorMessage
 
         mock_producer = MagicMock()
 
-        with patch("haiip.streaming.kafka_producer._kafka_available", return_value=True), \
-             patch("haiip.streaming.kafka_producer._confluent_available", True):
+        with (
+            patch("haiip.streaming.kafka_producer._kafka_available", return_value=True),
+            patch("haiip.streaming.kafka_producer._confluent_available", True),
+        ):
             producer = SensorProducer.__new__(SensorProducer)
             producer._producer = mock_producer
             producer._on_delivery = SensorProducer._default_delivery_report
             producer.bootstrap_servers = "localhost:9092"
 
             msg = SensorMessage(
-                machine_id="M001", tenant_id="t1",
-                air_temperature=300.0, process_temperature=310.0,
-                rotational_speed=1538.0, torque=40.0, tool_wear=100.0,
+                machine_id="M001",
+                tenant_id="t1",
+                air_temperature=300.0,
+                process_temperature=310.0,
+                rotational_speed=1538.0,
+                torque=40.0,
+                tool_wear=100.0,
             )
             producer.publish_sensor(msg)
 
@@ -167,21 +192,25 @@ class TestSensorProducer:
 
     def test_flush_returns_zero_when_no_kafka(self):
         import haiip.streaming.kafka_producer as kp
+
         kp._confluent_available = None
 
         from haiip.streaming.kafka_producer import SensorProducer
+
         producer = SensorProducer.__new__(SensorProducer)
         producer._producer = None
         assert producer.flush() == 0
 
     def test_poll_returns_zero_when_no_kafka(self):
         from haiip.streaming.kafka_producer import SensorProducer
+
         producer = SensorProducer.__new__(SensorProducer)
         producer._producer = None
         assert producer.poll() == 0
 
     def test_publish_logs_on_produce_error(self):
         from haiip.streaming.kafka_producer import SensorProducer
+
         mock_p = MagicMock()
         mock_p.produce.side_effect = Exception("broker unavailable")
 
@@ -195,12 +224,14 @@ class TestSensorProducer:
 
     def test_delivery_report_error_logged(self):
         from haiip.streaming.kafka_producer import SensorProducer
+
         with patch("haiip.streaming.kafka_producer.logger") as mock_log:
             SensorProducer._default_delivery_report("delivery failed", None)
             mock_log.error.assert_called_once()
 
     def test_delivery_report_success_logged(self):
         from haiip.streaming.kafka_producer import SensorProducer
+
         mock_msg = MagicMock()
         mock_msg.topic.return_value = "haiip.sensors.raw"
         mock_msg.partition.return_value = 0
@@ -211,6 +242,7 @@ class TestSensorProducer:
 
     def test_close_flushes(self):
         from haiip.streaming.kafka_producer import SensorProducer
+
         producer = SensorProducer.__new__(SensorProducer)
         producer._producer = None  # no-op flush
         producer.close()  # should not raise
@@ -218,26 +250,30 @@ class TestSensorProducer:
 
 # ── InferenceConsumer ─────────────────────────────────────────────────────────
 
-class TestInferenceConsumer:
 
+class TestInferenceConsumer:
     def test_consumer_no_kafka_is_noop(self):
         import haiip.streaming.kafka_producer as kp
+
         kp._confluent_available = None
 
         with patch.dict("sys.modules", {"confluent_kafka": None}):
             from haiip.streaming.kafka_consumer import InferenceConsumer
+
             consumer = InferenceConsumer()
             consumer.start()  # should not raise
             assert not consumer.is_running
 
     def test_messages_processed_initially_zero(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         c = InferenceConsumer()
         assert c.messages_processed == 0
         assert c.errors == 0
 
     def test_handle_message_bad_json(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         consumer = InferenceConsumer()
         mock_msg = MagicMock()
         mock_msg.value.return_value = b"not-valid-json"
@@ -246,13 +282,19 @@ class TestInferenceConsumer:
 
     def test_handle_message_valid_no_detector(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         consumer = InferenceConsumer(detector=None)
         mock_msg = MagicMock()
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg.value.return_value = json.dumps(payload).encode()
         consumer._handle_message(mock_msg)
@@ -260,17 +302,25 @@ class TestInferenceConsumer:
 
     def test_handle_message_with_detector(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         mock_detector = MagicMock()
         mock_detector.predict.return_value = {
-            "label": "normal", "confidence": 0.9,
-            "anomaly_score": 0.1, "explanation": {},
+            "label": "normal",
+            "confidence": 0.9,
+            "anomaly_score": 0.1,
+            "explanation": {},
         }
         consumer = InferenceConsumer(detector=mock_detector)
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -279,18 +329,26 @@ class TestInferenceConsumer:
 
     def test_anomaly_publishes_alert(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         mock_detector = MagicMock()
         mock_detector.predict.return_value = {
-            "label": "anomaly", "confidence": 0.92,
-            "anomaly_score": 0.75, "explanation": {},
+            "label": "anomaly",
+            "confidence": 0.92,
+            "anomaly_score": 0.75,
+            "explanation": {},
         }
         mock_producer = MagicMock()
         consumer = InferenceConsumer(detector=mock_detector, producer=mock_producer)
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -299,18 +357,26 @@ class TestInferenceConsumer:
 
     def test_high_confidence_anomaly_critical_alert(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         mock_detector = MagicMock()
         mock_detector.predict.return_value = {
-            "label": "anomaly", "confidence": 0.95,
-            "anomaly_score": 0.8, "explanation": {},
+            "label": "anomaly",
+            "confidence": 0.95,
+            "anomaly_score": 0.8,
+            "explanation": {},
         }
         mock_producer = MagicMock()
         consumer = InferenceConsumer(detector=mock_detector, producer=mock_producer)
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -320,14 +386,20 @@ class TestInferenceConsumer:
 
     def test_inference_exception_increments_errors(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         mock_detector = MagicMock()
         mock_detector.predict.side_effect = RuntimeError("model crashed")
         consumer = InferenceConsumer(detector=mock_detector)
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -336,21 +408,29 @@ class TestInferenceConsumer:
 
     def test_on_prediction_callback_fires(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         received = []
         mock_detector = MagicMock()
         mock_detector.predict.return_value = {
-            "label": "normal", "confidence": 0.9,
-            "anomaly_score": 0.1, "explanation": {},
+            "label": "normal",
+            "confidence": 0.9,
+            "anomaly_score": 0.1,
+            "explanation": {},
         }
         consumer = InferenceConsumer(
             detector=mock_detector,
             on_prediction=received.append,
         )
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -359,20 +439,29 @@ class TestInferenceConsumer:
 
     def test_callback_exception_does_not_crash(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         mock_detector = MagicMock()
         mock_detector.predict.return_value = {
-            "label": "normal", "confidence": 0.9,
-            "anomaly_score": 0.1, "explanation": {},
+            "label": "normal",
+            "confidence": 0.9,
+            "anomaly_score": 0.1,
+            "explanation": {},
         }
+
         def bad_callback(x):
             raise ValueError("callback failure")
 
         consumer = InferenceConsumer(detector=mock_detector, on_prediction=bad_callback)
         payload = {
-            "machine_id": "M001", "tenant_id": "t1",
-            "air_temperature": 300.0, "process_temperature": 310.0,
-            "rotational_speed": 1538.0, "torque": 40.0, "tool_wear": 100.0,
-            "timestamp": time.time(), "source": "test",
+            "machine_id": "M001",
+            "tenant_id": "t1",
+            "air_temperature": 300.0,
+            "process_temperature": 310.0,
+            "rotational_speed": 1538.0,
+            "torque": 40.0,
+            "tool_wear": 100.0,
+            "timestamp": time.time(),
+            "source": "test",
         }
         mock_msg = MagicMock()
         mock_msg.value.return_value = json.dumps(payload).encode()
@@ -380,6 +469,7 @@ class TestInferenceConsumer:
 
     def test_stop_sets_running_false(self):
         from haiip.streaming.kafka_consumer import InferenceConsumer
+
         consumer = InferenceConsumer()
         consumer._running = True
         consumer._consumer = MagicMock()

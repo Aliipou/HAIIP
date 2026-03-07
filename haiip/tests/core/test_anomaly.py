@@ -7,6 +7,7 @@ from haiip.core.anomaly import AnomalyDetector
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def normal_data() -> np.ndarray:
     rng = np.random.default_rng(42)
@@ -22,6 +23,7 @@ def fitted_detector(normal_data: np.ndarray) -> AnomalyDetector:
 
 # ── Init ──────────────────────────────────────────────────────────────────────
 
+
 def test_init_defaults():
     d = AnomalyDetector()
     assert d.contamination == 0.05
@@ -36,6 +38,7 @@ def test_init_custom():
 
 
 # ── Fit ───────────────────────────────────────────────────────────────────────
+
 
 def test_fit_sets_fitted_flag(normal_data):
     d = AnomalyDetector()
@@ -57,8 +60,17 @@ def test_fit_raises_on_1d():
 
 def test_fit_from_dataframe(normal_data):
     import pandas as pd
-    df = pd.DataFrame(normal_data, columns=["air_temperature", "process_temperature",
-                                             "rotational_speed", "torque", "tool_wear"])
+
+    df = pd.DataFrame(
+        normal_data,
+        columns=[
+            "air_temperature",
+            "process_temperature",
+            "rotational_speed",
+            "torque",
+            "tool_wear",
+        ],
+    )
     d = AnomalyDetector()
     d.fit_from_dataframe(df)
     assert d.is_fitted
@@ -66,6 +78,7 @@ def test_fit_from_dataframe(normal_data):
 
 def test_fit_from_dataframe_missing_col(normal_data):
     import pandas as pd
+
     df = pd.DataFrame(normal_data, columns=["a", "b", "c", "d", "e"])
     d = AnomalyDetector()
     with pytest.raises(ValueError, match="Missing columns"):
@@ -73,6 +86,7 @@ def test_fit_from_dataframe_missing_col(normal_data):
 
 
 # ── Predict ───────────────────────────────────────────────────────────────────
+
 
 def test_predict_unfitted_returns_safe_default():
     d = AnomalyDetector()
@@ -110,6 +124,7 @@ def test_predict_confidence_range(fitted_detector, normal_data):
 
 # ── Batch predict ─────────────────────────────────────────────────────────────
 
+
 def test_predict_batch_returns_list(fitted_detector, normal_data):
     results = fitted_detector.predict_batch(normal_data[:10])
     assert len(results) == 10
@@ -126,6 +141,7 @@ def test_predict_batch_unfitted():
 
 
 # ── Save / Load ───────────────────────────────────────────────────────────────
+
 
 def test_save_raises_if_not_fitted(tmp_path):
     d = AnomalyDetector()

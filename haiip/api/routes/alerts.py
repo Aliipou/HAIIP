@@ -1,12 +1,12 @@
 """Alert routes — list, acknowledge, and create alerts."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
-from haiip.api.deps import CurrentUser, DB, EngineerUser
+from haiip.api.deps import DB, CurrentUser, EngineerUser
 from haiip.api.models import Alert
 from haiip.api.schemas import AcknowledgeAlertRequest, AlertResponse, Page
 
@@ -87,7 +87,7 @@ async def acknowledge_alert(
 
     alert.is_acknowledged = True
     alert.acknowledged_by = current_user.id
-    alert.acknowledged_at = datetime.now(timezone.utc)
+    alert.acknowledged_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(alert)
 

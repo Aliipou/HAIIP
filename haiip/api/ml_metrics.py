@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +179,7 @@ def record_model_version(tenant_id: str, model_name: str, version: str) -> None:
         if gauge:
             # Use last 8 hex chars of sha256 as float — detects version changes in Grafana
             import hashlib
+
             h = int(hashlib.sha256(version.encode()).hexdigest()[-8:], 16)
             gauge.labels(tenant_id=tenant_id, model_name=model_name).set(float(h % 1_000_000))  # type: ignore[union-attr]
     except Exception as exc:  # noqa: BLE001

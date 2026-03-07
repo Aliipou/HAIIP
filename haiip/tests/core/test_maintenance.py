@@ -11,7 +11,14 @@ def training_data():
     rng = np.random.default_rng(42)
     n = 600
     X = rng.normal(loc=[300, 310, 1538, 40, 100], scale=[2, 1.5, 179, 9.8, 50], size=(n, 5))
-    labels = ["no_failure"] * 500 + ["TWF"] * 20 + ["HDF"] * 20 + ["PWF"] * 20 + ["OSF"] * 20 + ["RNF"] * 20
+    labels = (
+        ["no_failure"] * 500
+        + ["TWF"] * 20
+        + ["HDF"] * 20
+        + ["PWF"] * 20
+        + ["OSF"] * 20
+        + ["RNF"] * 20
+    )
     rng.shuffle(labels)
     return X, np.array(labels)
 

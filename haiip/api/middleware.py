@@ -27,11 +27,23 @@ logger = logging.getLogger(__name__)
 
 # ── PII field names to scrub from logs ────────────────────────────────────────
 
-_PII_FIELDS = frozenset({
-    "password", "secret", "token", "access_token", "refresh_token",
-    "authorization", "api_key", "email", "phone", "ssn",
-    "credit_card", "card_number", "cvv",
-})
+_PII_FIELDS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "authorization",
+        "api_key",
+        "email",
+        "phone",
+        "ssn",
+        "credit_card",
+        "card_number",
+        "cvv",
+    }
+)
 
 
 def scrub_pii(data: dict[str, Any]) -> dict[str, Any]:
@@ -47,10 +59,7 @@ def scrub_pii(data: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(v, dict):
             result[k] = scrub_pii(v)
         elif isinstance(v, list):
-            result[k] = [
-                scrub_pii(item) if isinstance(item, dict) else item
-                for item in v
-            ]
+            result[k] = [scrub_pii(item) if isinstance(item, dict) else item for item in v]
         else:
             result[k] = v
     return result
@@ -62,6 +71,7 @@ def safe_log_extra(extra: dict[str, Any]) -> dict[str, Any]:
 
 
 # ── In-memory sliding window rate limiter ─────────────────────────────────────
+
 
 class _InMemoryRateLimiter:
     """Thread-safe sliding window rate limiter (per-IP, per-path-prefix).
@@ -75,7 +85,7 @@ class _InMemoryRateLimiter:
         self._windows: dict[str, list[float]] = defaultdict(list)
 
     def is_allowed(self, key: str, limit: int, window_seconds: int) -> bool:
-        now   = time.monotonic()
+        now = time.monotonic()
         cutoff = now - window_seconds
         self._windows[key] = [t for t in self._windows[key] if t > cutoff]
         if len(self._windows[key]) >= limit:
@@ -88,13 +98,13 @@ _limiter = _InMemoryRateLimiter()
 
 # Per-endpoint limits: (requests, window_seconds)
 _RATE_LIMITS: dict[str, tuple[int, int]] = {
-    "/api/v1/auth/login":        (10,  60),   # 10 logins / minute
-    "/api/v1/auth/register":     (5,   60),   # 5 registrations / minute
-    "/api/v1/predict":           (60,  60),   # 60 predictions / minute
-    "/api/v1/economic":          (60,  60),   # 60 economic calls / minute
-    "/api/v1/agent":             (20,  60),   # 20 agent queries / minute (expensive)
-    "/api/v1/documents":         (10,  60),   # 10 ingests / minute
-    "_default":                  (120, 60),   # 120 any other / minute
+    "/api/v1/auth/login": (10, 60),  # 10 logins / minute
+    "/api/v1/auth/register": (5, 60),  # 5 registrations / minute
+    "/api/v1/predict": (60, 60),  # 60 predictions / minute
+    "/api/v1/economic": (60, 60),  # 60 economic calls / minute
+    "/api/v1/agent": (20, 60),  # 20 agent queries / minute (expensive)
+    "/api/v1/documents": (10, 60),  # 10 ingests / minute
+    "_default": (120, 60),  # 120 any other / minute
 }
 
 _MAX_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -110,7 +120,7 @@ def _client_ip(request: Request) -> str:
 
 def _rate_limit_key(request: Request) -> tuple[str, int, int]:
     """Return (bucket_key, limit, window_seconds) for this request."""
-    ip   = _client_ip(request)
+    ip = _client_ip(request)
     path = request.url.path
     for prefix, (lim, win) in _RATE_LIMITS.items():
         if prefix != "_default" and path.startswith(prefix):
@@ -123,13 +133,13 @@ def _rate_limit_key(request: Request) -> tuple[str, int, int]:
 # ── Security headers ───────────────────────────────────────────────────────────
 
 _SECURITY_HEADERS: dict[str, str] = {
-    "X-Content-Type-Options":    "nosniff",
-    "X-Frame-Options":           "DENY",
-    "X-XSS-Protection":          "1; mode=block",
-    "Referrer-Policy":           "strict-origin-when-cross-origin",
-    "Permissions-Policy":        "geolocation=(), camera=(), microphone=()",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "Content-Security-Policy":   (
+    "Content-Security-Policy": (
         "default-src 'self'; "
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
@@ -144,6 +154,7 @@ _SECURITY_HEADERS: dict[str, str] = {
 
 # ── Middleware ─────────────────────────────────────────────────────────────────
 
+
 class SecurityMiddleware(BaseHTTPMiddleware):
     """Applies rate limiting, security headers, body size limit, and request logging.
 
@@ -156,7 +167,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if content_length and int(content_length) > _MAX_BODY_BYTES:
             return JSONResponse(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                content={"success": False, "error": "Request body too large (max 10 MB)"},
+                content={
+                    "success": False,
+                    "error": "Request body too large (max 10 MB)",
+                },
             )
 
         # ── Rate limiting ──────────────────────────────────────────────────────
@@ -179,7 +193,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 )
 
         # ── Process request ────────────────────────────────────────────────────
-        t0       = time.perf_counter()
+        t0 = time.perf_counter()
         response = await call_next(request)
         duration = (time.perf_counter() - t0) * 1000
 
@@ -192,13 +206,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             logger.info(
                 "http_request",
                 extra={
-                    "method":      request.method,
-                    "path":        request.url.path,
+                    "method": request.method,
+                    "path": request.url.path,
                     "status_code": response.status_code,
                     "duration_ms": round(duration, 1),
-                    "ip_hash":     hashlib.sha256(
-                        _client_ip(request).encode()
-                    ).hexdigest()[:8],  # hash IP — GDPR data minimisation
+                    "ip_hash": hashlib.sha256(_client_ip(request).encode()).hexdigest()[
+                        :8
+                    ],  # hash IP — GDPR data minimisation
                 },
             )
 

@@ -12,8 +12,6 @@ Covers the end-to-end flow required for 100% industrial compatibility:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -22,10 +20,8 @@ from haiip.core.anomaly import AnomalyDetector
 from haiip.core.auto_retrain import (
     AutoRetrainPipeline,
     ChampionChallenger,
-    ModelMetrics,
     RetrainStatus,
     RetrainTrigger,
-    TriggerReason,
 )
 from haiip.core.drift import DriftDetector
 from haiip.core.maintenance import MaintenancePredictor
@@ -34,26 +30,40 @@ from haiip.core.onnx_runtime import ONNXAnomalyDetector
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 N_FEATURES = 5
-FEATURE_COLS = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+FEATURE_COLS = [
+    "air_temperature",
+    "process_temperature",
+    "rotational_speed",
+    "torque",
+    "tool_wear",
+]
 
 
 @pytest.fixture()
 def normal_data() -> np.ndarray:
     rng = np.random.default_rng(0)
-    return rng.normal(loc=[298, 308, 1500, 40, 100], scale=[2, 2, 50, 5, 30], size=(200, N_FEATURES))
+    return rng.normal(
+        loc=[298, 308, 1500, 40, 100], scale=[2, 2, 50, 5, 30], size=(200, N_FEATURES)
+    )
 
 
 @pytest.fixture()
 def shifted_data() -> np.ndarray:
     """Shifted distribution simulating sensor drift."""
     rng = np.random.default_rng(1)
-    return rng.normal(loc=[310, 320, 1800, 60, 200], scale=[3, 3, 60, 8, 40], size=(100, N_FEATURES))
+    return rng.normal(
+        loc=[310, 320, 1800, 60, 200], scale=[3, 3, 60, 8, 40], size=(100, N_FEATURES)
+    )
 
 
 @pytest.fixture()
 def anomaly_data() -> np.ndarray:
     rng = np.random.default_rng(2)
-    return rng.normal(loc=[400, 400, 3000, 100, 500], scale=[10, 10, 100, 20, 50], size=(20, N_FEATURES))
+    return rng.normal(
+        loc=[400, 400, 3000, 100, 500],
+        scale=[10, 10, 100, 20, 50],
+        size=(20, N_FEATURES),
+    )
 
 
 @pytest.fixture()
@@ -76,13 +86,17 @@ def fitted_drift_detector(normal_data: np.ndarray) -> DriftDetector:
 
 
 class TestSensorToAnomalyDetection:
-    def test_normal_data_mostly_normal(self, fitted_detector: AnomalyDetector, normal_data: np.ndarray) -> None:
+    def test_normal_data_mostly_normal(
+        self, fitted_detector: AnomalyDetector, normal_data: np.ndarray
+    ) -> None:
         results = fitted_detector.predict_batch(normal_data[:50])
         n_anomaly = sum(1 for r in results if r["label"] == "anomaly")
         # Contamination=0.05 → expect ≤10% anomaly rate
         assert n_anomaly / len(results) <= 0.15, f"Too many anomalies: {n_anomaly}/50"
 
-    def test_anomaly_data_detected(self, fitted_detector: AnomalyDetector, anomaly_data: np.ndarray) -> None:
+    def test_anomaly_data_detected(
+        self, fitted_detector: AnomalyDetector, anomaly_data: np.ndarray
+    ) -> None:
         results = fitted_detector.predict_batch(anomaly_data)
         n_anomaly = sum(1 for r in results if r["label"] == "anomaly")
         # Extreme values should be flagged as anomalies
@@ -142,7 +156,12 @@ class TestDriftDetectionPipeline:
     ) -> None:
         results = fitted_drift_detector.check(shifted_data)
         summary = fitted_drift_detector.summary(results)
-        for key in ("drift_detected", "severity", "affected_features", "feature_details"):
+        for key in (
+            "drift_detected",
+            "severity",
+            "affected_features",
+            "feature_details",
+        ):
             assert key in summary
 
     def test_result_per_feature(
@@ -300,7 +319,13 @@ class TestMaintenancePredictorIntegration:
     def test_predict_has_required_keys(
         self, fitted_maintenance: MaintenancePredictor, normal_data: np.ndarray
     ) -> None:
-        required = {"label", "confidence", "failure_probability", "rul_cycles", "explanation"}
+        required = {
+            "label",
+            "confidence",
+            "failure_probability",
+            "rul_cycles",
+            "explanation",
+        }
         result = fitted_maintenance.predict(normal_data[0].tolist())
         assert required.issubset(result.keys())
 
@@ -351,9 +376,7 @@ class TestIndustrialEdgeCases:
         result = fitted_detector.predict([float("inf")] * N_FEATURES)
         assert "label" in result
 
-    def test_drift_check_on_single_row(
-        self, fitted_drift_detector: DriftDetector
-    ) -> None:
+    def test_drift_check_on_single_row(self, fitted_drift_detector: DriftDetector) -> None:
         """Single-row current data should not crash."""
         single = np.ones((2, N_FEATURES))  # KS test needs ≥2 samples
         results = fitted_drift_detector.check(single)

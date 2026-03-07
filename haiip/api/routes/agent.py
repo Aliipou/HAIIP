@@ -30,6 +30,7 @@ _agent = IndustrialAgent()
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+
 class AgentQueryRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=2000, description="Natural language query")
     machine_id: str | None = Field(None, description="Optional machine ID to scope KB search")
@@ -67,6 +68,7 @@ class DiagnoseRequest(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/agent/query", response_model=AgentQueryResponse, tags=["agent"])
 async def agent_query(

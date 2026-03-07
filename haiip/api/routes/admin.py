@@ -7,14 +7,15 @@ Platform-level super-admin (is_superadmin flag) not yet implemented — planned 
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import structlog
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from haiip.api.auth import hash_password
-from haiip.api.deps import AdminUser, CurrentUser, DB
+from haiip.api.deps import DB, AdminUser
 from haiip.api.models import AuditLog, ModelRegistry, Tenant, User
 
 router = APIRouter()
@@ -22,6 +23,7 @@ logger = structlog.get_logger(__name__)
 
 
 # ── Schemas (admin-only, not exposed in public schemas.py) ────────────────────
+
 
 class UserListItem(BaseModel):
     id: str
@@ -81,6 +83,7 @@ class ModelActivate(BaseModel):
 
 # ── Tenant info (admin sees own tenant) ───────────────────────────────────────
 
+
 @router.get("/admin/tenant", response_model=TenantInfo)
 async def get_own_tenant(
     current_user: AdminUser,
@@ -92,12 +95,11 @@ async def get_own_tenant(
     if tenant is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tenant not found")
 
-    user_count_r = await db.execute(
-        select(func.count(User.id)).where(User.tenant_id == tenant.id)
-    )
+    user_count_r = await db.execute(select(func.count(User.id)).where(User.tenant_id == tenant.id))
     user_count = user_count_r.scalar_one()
 
     from haiip.api.models import Prediction
+
     pred_count_r = await db.execute(
         select(func.count(Prediction.id)).where(Prediction.tenant_id == tenant.id)
     )
@@ -115,6 +117,7 @@ async def get_own_tenant(
 
 
 # ── User management ───────────────────────────────────────────────────────────
+
 
 @router.get("/admin/users", response_model=list[UserListItem])
 async def list_users(
@@ -227,8 +230,11 @@ async def update_user_admin(
     )
 
 
-@router.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT,
-               response_model=None)
+@router.delete(
+    "/admin/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
 async def deactivate_user(
     user_id: str,
     current_user: AdminUser,
@@ -251,6 +257,7 @@ async def deactivate_user(
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────
+
 
 class AuditLogItem(BaseModel):
     id: str
@@ -294,6 +301,7 @@ async def get_audit_log(
 
 
 # ── Model Registry ────────────────────────────────────────────────────────────
+
 
 @router.get("/admin/models", response_model=list[ModelRegistryItem])
 async def list_models(
@@ -375,6 +383,7 @@ async def activate_model(
 
 # ── System stats (admin dashboard) ───────────────────────────────────────────
 
+
 class SystemStats(BaseModel):
     tenant_id: str
     total_users: int
@@ -393,12 +402,12 @@ async def get_system_stats(
     db: DB,
 ) -> SystemStats:
     """Aggregate stats for the admin dashboard."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from haiip.api.models import Alert, FeedbackLog, Prediction
 
     tid = current_user.tenant_id
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
     async def count(model, *filters):  # type: ignore[no-untyped-def]
         r = await db.execute(select(func.count(model.id)).where(*filters))
@@ -408,9 +417,11 @@ async def get_system_stats(
     active_users = await count(User, User.tenant_id == tid, User.is_active == True)  # noqa: E712
     total_predictions = await count(Prediction, Prediction.tenant_id == tid)
     total_alerts = await count(Alert, Alert.tenant_id == tid)
-    unacked_alerts = await count(Alert, Alert.tenant_id == tid, Alert.is_acknowledged == False)  # noqa: E712
+    unacked_alerts = await count(Alert, Alert.tenant_id == tid, not Alert.is_acknowledged)  # noqa: E712
     total_feedback = await count(FeedbackLog, FeedbackLog.tenant_id == tid)
-    active_models = await count(ModelRegistry, ModelRegistry.tenant_id == tid, ModelRegistry.is_active == True)  # noqa: E712
+    active_models = await count(
+        ModelRegistry, ModelRegistry.tenant_id == tid, ModelRegistry.is_active
+    )  # noqa: E712
     audit_today = await count(
         AuditLog,
         AuditLog.tenant_id == tid,

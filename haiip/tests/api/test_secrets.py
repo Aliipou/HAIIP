@@ -22,6 +22,7 @@ from haiip.api.secrets import (
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _make_boto3_mock(secret_dict: dict) -> MagicMock:
     mock_client = MagicMock()
     mock_client.get_secret_value.return_value = {"SecretString": json.dumps(secret_dict)}
@@ -32,8 +33,17 @@ def _make_boto3_mock(secret_dict: dict) -> MagicMock:
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
-_INJECTED_KEYS = ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "GROQ_API_KEY",
-                  "PORT", "ENABLED", "MY_KEY", "NONEXISTENT_KEY", "_HAIIP_SENTINEL"]
+_INJECTED_KEYS = [
+    "SECRET_KEY",
+    "DATABASE_URL",
+    "OPENAI_API_KEY",
+    "GROQ_API_KEY",
+    "PORT",
+    "ENABLED",
+    "MY_KEY",
+    "NONEXISTENT_KEY",
+    "_HAIIP_SENTINEL",
+]
 
 
 @pytest.fixture(autouse=True)
@@ -57,10 +67,13 @@ def reset_state():
 
 # ── inject_aws_secrets ─────────────────────────────────────────────────────────
 
+
 def test_inject_populates_os_environ():
     payload = {"SECRET_KEY": "prod-xyz", "DATABASE_URL": "postgresql://..."}
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         injected = inject_aws_secrets()
     assert os.environ["SECRET_KEY"] == "prod-xyz"
     assert os.environ["DATABASE_URL"] == "postgresql://..."
@@ -70,8 +83,10 @@ def test_inject_populates_os_environ():
 def test_inject_does_not_overwrite_existing_by_default():
     os.environ["SECRET_KEY"] = "already-set"
     payload = {"SECRET_KEY": "from-aws"}
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         injected = inject_aws_secrets()
     assert os.environ["SECRET_KEY"] == "already-set"
     assert "SECRET_KEY" not in injected
@@ -80,24 +95,24 @@ def test_inject_does_not_overwrite_existing_by_default():
 def test_inject_overwrites_when_flag_set():
     os.environ["SECRET_KEY"] = "already-set"
     payload = {"SECRET_KEY": "from-aws"}
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         injected = inject_aws_secrets(overwrite_existing=True)
     assert os.environ["SECRET_KEY"] == "from-aws"
     assert "SECRET_KEY" in injected
 
 
 def test_inject_returns_empty_when_no_boto3_in_dev():
-    with patch.dict("sys.modules", {"boto3": None, "botocore": None,
-                                    "botocore.exceptions": None}):
+    with patch.dict("sys.modules", {"boto3": None, "botocore": None, "botocore.exceptions": None}):
         result = inject_aws_secrets()
     assert result == {}
 
 
 def test_inject_raises_in_production_when_boto3_missing():
     os.environ["APP_ENV"] = "production"
-    with patch.dict("sys.modules", {"boto3": None, "botocore": None,
-                                    "botocore.exceptions": None}):
+    with patch.dict("sys.modules", {"boto3": None, "botocore": None, "botocore.exceptions": None}):
         with pytest.raises(RuntimeError, match="Production environment requires"):
             inject_aws_secrets()
 
@@ -108,8 +123,7 @@ def test_inject_raises_in_production_when_aws_fails():
     mock_client.get_secret_value.side_effect = Exception("AccessDeniedException")
     mock_boto3 = MagicMock()
     mock_boto3.client.return_value = mock_client
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         with pytest.raises(RuntimeError, match="Failed to fetch secret"):
             inject_aws_secrets()
 
@@ -120,8 +134,7 @@ def test_inject_aws_fails_in_dev_returns_empty():
     mock_client.get_secret_value.side_effect = Exception("timeout")
     mock_boto3 = MagicMock()
     mock_boto3.client.return_value = mock_client
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         result = inject_aws_secrets()
     assert result == {}
 
@@ -129,8 +142,10 @@ def test_inject_aws_fails_in_dev_returns_empty():
 def test_inject_non_string_values_are_coerced():
     """_fetch_from_aws stringifies, but inject_aws_secrets has a defensive check too."""
     payload = {"PORT": 8000, "ENABLED": True}
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         inject_aws_secrets()
     assert os.environ.get("PORT") == "8000"
     assert os.environ.get("ENABLED") == "True"
@@ -150,8 +165,7 @@ def test_inject_invalid_json_returns_empty():
     mock_client.get_secret_value.return_value = {"SecretString": "not-json!!"}
     mock_boto3 = MagicMock()
     mock_boto3.client.return_value = mock_client
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         result = inject_aws_secrets()
     assert result == {}
 
@@ -161,13 +175,13 @@ def test_inject_empty_secret_string_returns_empty():
     mock_client.get_secret_value.return_value = {"SecretString": ""}
     mock_boto3 = MagicMock()
     mock_boto3.client.return_value = mock_client
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         result = inject_aws_secrets()
     assert result == {}
 
 
 # ── get_secret_value ───────────────────────────────────────────────────────────
+
 
 def test_get_secret_value_from_env():
     os.environ["MY_KEY"] = "env-value"
@@ -203,6 +217,7 @@ def test_get_secret_value_empty_default():
 
 # ── _get_cache branches ────────────────────────────────────────────────────────
 
+
 def test_get_cache_returns_none_when_not_present():
     assert _get_cache("nonexistent-secret") is None
 
@@ -228,11 +243,11 @@ def test_get_cache_returns_none_when_ttl_expired():
 
 # ── Caching behaviour ──────────────────────────────────────────────────────────
 
+
 def test_cache_prevents_double_aws_call():
     payload = {"SECRET_KEY": "cached-secret"}
     mock_boto3 = _make_boto3_mock(payload)
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         inject_aws_secrets()
         inject_aws_secrets()  # second call — uses cache
     assert mock_boto3.client.call_count == 1
@@ -241,8 +256,7 @@ def test_cache_prevents_double_aws_call():
 def test_clear_cache_forces_refetch():
     payload = {"SECRET_KEY": "cached-secret"}
     mock_boto3 = _make_boto3_mock(payload)
-    with patch.dict("sys.modules", {"boto3": mock_boto3,
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore.exceptions": MagicMock()}):
         inject_aws_secrets()
         clear_cache()
         inject_aws_secrets()
@@ -251,17 +265,19 @@ def test_clear_cache_forces_refetch():
 
 # ── _fetch_from_aws directly ───────────────────────────────────────────────────
 
+
 def test_fetch_from_aws_returns_dict():
     payload = {"SECRET_KEY": "direct-fetch"}
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         result = _fetch_from_aws("haiip/production/config", "eu-north-1")
     assert result["SECRET_KEY"] == "direct-fetch"
 
 
 def test_fetch_from_aws_returns_empty_without_boto3():
-    with patch.dict("sys.modules", {"boto3": None, "botocore": None,
-                                    "botocore.exceptions": None}):
+    with patch.dict("sys.modules", {"boto3": None, "botocore": None, "botocore.exceptions": None}):
         result = _fetch_from_aws("haiip/production/config", "eu-north-1")
     assert result == {}
 
@@ -269,8 +285,10 @@ def test_fetch_from_aws_returns_empty_without_boto3():
 def test_fetch_from_aws_caches_result():
     payload = {"KEY": "value"}
     secret_name = "test/cache-check"
-    with patch.dict("sys.modules", {"boto3": _make_boto3_mock(payload),
-                                    "botocore.exceptions": MagicMock()}):
+    with patch.dict(
+        "sys.modules",
+        {"boto3": _make_boto3_mock(payload), "botocore.exceptions": MagicMock()},
+    ):
         _fetch_from_aws(secret_name, "eu-north-1")
     assert secret_name in _cache
     assert _cache[secret_name][0] == {"KEY": "value"}

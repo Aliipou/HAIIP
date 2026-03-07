@@ -40,14 +40,16 @@ logger = logging.getLogger(__name__)
 
 # ── Decision types ─────────────────────────────────────────────────────────────
 
+
 class MaintenanceAction(str, Enum):
-    REPAIR_NOW = "repair_now"       # Immediate corrective action required
-    SCHEDULE   = "schedule"         # Plan maintenance within RUL window
-    MONITOR    = "monitor"          # Increase monitoring cadence
-    IGNORE     = "ignore"           # Sensor noise / below economic threshold
+    REPAIR_NOW = "repair_now"  # Immediate corrective action required
+    SCHEDULE = "schedule"  # Plan maintenance within RUL window
+    MONITOR = "monitor"  # Increase monitoring cadence
+    IGNORE = "ignore"  # Sensor noise / below economic threshold
 
 
 # ── Cost model dataclass ───────────────────────────────────────────────────────
+
 
 @dataclass
 class CostProfile:
@@ -64,15 +66,16 @@ class CostProfile:
         urgency_factor:         Threshold multiplier for REPAIR_NOW (0–1)
         noise_floor:            Anomaly score below which we ignore (0–1)
     """
+
     production_rate_eur_hr: float = 500.0
-    downtime_hours_avg:     float = 8.0
-    labour_rate_eur_hr:     float = 85.0
-    labour_hours_avg:       float = 4.0
-    parts_cost_eur:         float = 250.0
-    opportunity_cost_eur:   float = 150.0
-    safety_factor:          float = 1.5
-    urgency_factor:         float = 0.7
-    noise_floor:            float = 0.05
+    downtime_hours_avg: float = 8.0
+    labour_rate_eur_hr: float = 85.0
+    labour_hours_avg: float = 4.0
+    parts_cost_eur: float = 250.0
+    opportunity_cost_eur: float = 150.0
+    safety_factor: float = 1.5
+    urgency_factor: float = 0.7
+    noise_floor: float = 0.05
 
     @property
     def c_downtime(self) -> float:
@@ -118,40 +121,42 @@ class EconomicDecision:
         cost_profile:          Economic parameters used
         metadata:              Arbitrary audit metadata
     """
-    decision_id:           str
-    action:                MaintenanceAction
-    expected_cost_action:  float
-    expected_cost_wait:    float
-    net_benefit:           float
-    failure_probability:   float
-    anomaly_score:         float
-    rul_cycles:            float | None
-    confidence:            float
-    explanation:           str
+
+    decision_id: str
+    action: MaintenanceAction
+    expected_cost_action: float
+    expected_cost_wait: float
+    net_benefit: float
+    failure_probability: float
+    anomaly_score: float
+    rul_cycles: float | None
+    confidence: float
+    explanation: str
     requires_human_review: bool
-    cost_profile:          CostProfile
-    metadata:              dict[str, Any] = field(default_factory=dict)
+    cost_profile: CostProfile
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "decision_id":           self.decision_id,
-            "action":                self.action.value,
-            "expected_cost_action":  round(self.expected_cost_action, 2),
-            "expected_cost_wait":    round(self.expected_cost_wait, 2),
-            "net_benefit":           round(self.net_benefit, 2),
-            "failure_probability":   round(self.failure_probability, 4),
-            "anomaly_score":         round(self.anomaly_score, 4),
-            "rul_cycles":            self.rul_cycles,
-            "confidence":            round(self.confidence, 4),
-            "explanation":           self.explanation,
+            "decision_id": self.decision_id,
+            "action": self.action.value,
+            "expected_cost_action": round(self.expected_cost_action, 2),
+            "expected_cost_wait": round(self.expected_cost_wait, 2),
+            "net_benefit": round(self.net_benefit, 2),
+            "failure_probability": round(self.failure_probability, 4),
+            "anomaly_score": round(self.anomaly_score, 4),
+            "rul_cycles": self.rul_cycles,
+            "confidence": round(self.confidence, 4),
+            "explanation": self.explanation,
             "requires_human_review": self.requires_human_review,
-            "c_downtime_eur":        round(self.cost_profile.c_downtime, 2),
-            "c_maintenance_eur":     round(self.cost_profile.c_maintenance, 2),
-            "metadata":              self.metadata,
+            "c_downtime_eur": round(self.cost_profile.c_downtime, 2),
+            "c_maintenance_eur": round(self.cost_profile.c_maintenance, 2),
+            "metadata": self.metadata,
         }
 
 
 # ── Decision engine ────────────────────────────────────────────────────────────
+
 
 class EconomicDecisionEngine:
     """Expected Loss Minimization engine for maintenance decisions.
@@ -178,30 +183,30 @@ class EconomicDecisionEngine:
 
     # Human review thresholds (EU AI Act Article 14)
     _HIGH_UNCERTAINTY_THRESHOLD = 0.35  # confidence below this → review
-    _HIGH_COST_THRESHOLD        = 5_000  # net_benefit above this → review
+    _HIGH_COST_THRESHOLD = 5_000  # net_benefit above this → review
 
     def __init__(
         self,
-        cost_profile:              CostProfile | None = None,
-        schedule_threshold:        float = 0.5,   # P(failure) above → SCHEDULE
-        repair_now_threshold:      float = 0.75,  # P(failure) above → REPAIR_NOW
-        monitor_score_threshold:   float = 0.2,   # anomaly_score above → MONITOR
+        cost_profile: CostProfile | None = None,
+        schedule_threshold: float = 0.5,  # P(failure) above → SCHEDULE
+        repair_now_threshold: float = 0.75,  # P(failure) above → REPAIR_NOW
+        monitor_score_threshold: float = 0.2,  # anomaly_score above → MONITOR
     ) -> None:
-        self.cost_profile           = cost_profile or CostProfile()
-        self.schedule_threshold     = schedule_threshold
-        self.repair_now_threshold   = repair_now_threshold
+        self.cost_profile = cost_profile or CostProfile()
+        self.schedule_threshold = schedule_threshold
+        self.repair_now_threshold = repair_now_threshold
         self.monitor_score_threshold = monitor_score_threshold
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def decide(
         self,
-        anomaly_score:       float,
+        anomaly_score: float,
         failure_probability: float,
-        rul_cycles:          float | None = None,
-        confidence:          float = 0.8,
-        machine_id:          str | None = None,
-        metadata:            dict[str, Any] | None = None,
+        rul_cycles: float | None = None,
+        confidence: float = 0.8,
+        machine_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> EconomicDecision:
         """Compute the cost-optimal maintenance decision.
 
@@ -216,14 +221,14 @@ class EconomicDecisionEngine:
         Returns:
             EconomicDecision with action, costs, explanation, and review flag.
         """
-        p  = float(np.clip(failure_probability, 0.0, 1.0))
+        p = float(np.clip(failure_probability, 0.0, 1.0))
         sc = float(np.clip(anomaly_score, 0.0, 1.0))
         cf = self.cost_profile
 
         # Expected costs
-        e_cost_wait   = p * cf.c_false_negative + (1 - p) * 0.0
+        e_cost_wait = p * cf.c_false_negative + (1 - p) * 0.0
         e_cost_action = p * 0.0 + (1 - p) * cf.c_false_positive + cf.c_maintenance
-        net_benefit   = e_cost_wait - e_cost_action
+        net_benefit = e_cost_wait - e_cost_action
 
         action, explanation = self._classify(p, sc, rul_cycles, net_benefit)
 
@@ -234,19 +239,19 @@ class EconomicDecisionEngine:
         )
 
         decision = EconomicDecision(
-            decision_id           = str(uuid.uuid4()),
-            action                = action,
-            expected_cost_action  = e_cost_action,
-            expected_cost_wait    = e_cost_wait,
-            net_benefit           = net_benefit,
-            failure_probability   = p,
-            anomaly_score         = sc,
-            rul_cycles            = rul_cycles,
-            confidence            = confidence,
-            explanation           = explanation,
-            requires_human_review = requires_review,
-            cost_profile          = cf,
-            metadata              = {
+            decision_id=str(uuid.uuid4()),
+            action=action,
+            expected_cost_action=e_cost_action,
+            expected_cost_wait=e_cost_wait,
+            net_benefit=net_benefit,
+            failure_probability=p,
+            anomaly_score=sc,
+            rul_cycles=rul_cycles,
+            confidence=confidence,
+            explanation=explanation,
+            requires_human_review=requires_review,
+            cost_profile=cf,
+            metadata={
                 **(metadata or {}),
                 "machine_id": machine_id,
                 "engine_version": "1.0.0",
@@ -257,10 +262,10 @@ class EconomicDecisionEngine:
             "economic_decision",
             extra={
                 "decision_id": decision.decision_id,
-                "action":      action.value,
+                "action": action.value,
                 "net_benefit": round(net_benefit, 2),
-                "p_failure":   round(p, 3),
-                "machine_id":  machine_id,
+                "p_failure": round(p, 3),
+                "machine_id": machine_id,
             },
         )
         return decision
@@ -295,27 +300,26 @@ class EconomicDecisionEngine:
             action_counts[k] = action_counts.get(k, 0) + 1
 
         total_benefit = sum(d.net_benefit for d in decisions)
-        avg_conf      = float(np.mean([d.confidence for d in decisions]))
-        review_count  = sum(1 for d in decisions if d.requires_human_review)
+        avg_conf = float(np.mean([d.confidence for d in decisions]))
+        review_count = sum(1 for d in decisions if d.requires_human_review)
 
         # Projected downtime savings: decisions where we acted vs doing nothing
         acted = [
-            d for d in decisions
+            d
+            for d in decisions
             if d.action in (MaintenanceAction.REPAIR_NOW, MaintenanceAction.SCHEDULE)
         ]
-        savings = sum(
-            d.failure_probability * self.cost_profile.c_downtime for d in acted
-        )
+        savings = sum(d.failure_probability * self.cost_profile.c_downtime for d in acted)
 
         return {
-            "total_net_benefit":            round(total_benefit, 2),
+            "total_net_benefit": round(total_benefit, 2),
             "projected_downtime_savings_eur": round(savings, 2),
-            "decisions_by_action":           action_counts,
-            "avg_confidence":                round(avg_conf, 4),
-            "human_review_count":            review_count,
-            "decisions_total":               len(decisions),
+            "decisions_by_action": action_counts,
+            "avg_confidence": round(avg_conf, 4),
+            "human_review_count": review_count,
+            "decisions_total": len(decisions),
             "cost_profile": {
-                "c_downtime":    round(self.cost_profile.c_downtime, 2),
+                "c_downtime": round(self.cost_profile.c_downtime, 2),
                 "c_maintenance": round(self.cost_profile.c_maintenance, 2),
             },
         }
@@ -324,9 +328,9 @@ class EconomicDecisionEngine:
 
     def _classify(
         self,
-        p:          float,
-        score:      float,
-        rul:        float | None,
+        p: float,
+        score: float,
+        rul: float | None,
         net_benefit: float,
     ) -> tuple[MaintenanceAction, str]:
         """Map (p, score, rul, net_benefit) → (action, explanation)."""

@@ -6,10 +6,13 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_submit_feedback_requires_auth(client: AsyncClient):
-    response = await client.post("/api/v1/feedback", json={
-        "prediction_id": "some-id",
-        "was_correct": True,
-    })
+    response = await client.post(
+        "/api/v1/feedback",
+        json={
+            "prediction_id": "some-id",
+            "was_correct": True,
+        },
+    )
     assert response.status_code == 403
 
 

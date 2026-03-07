@@ -15,12 +15,9 @@ raise HardwareNotConnectedError if hardware is not connected.
 
 from __future__ import annotations
 
-import asyncio
 import json
-import math
-import time
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -32,21 +29,21 @@ from haiip.data.ingestion.opcua_connector import (
     validate_reading,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_reading(**overrides) -> SensorReading:
-    defaults = dict(
-        machine_id="test-pump-01",
-        timestamp=datetime.now(timezone.utc),
-        air_temperature=298.0,
-        process_temperature=308.0,
-        rotational_speed=1500.0,
-        torque=40.0,
-        tool_wear=50.0,
-    )
+    defaults = {
+        "machine_id": "test-pump-01",
+        "timestamp": datetime.now(UTC),
+        "air_temperature": 298.0,
+        "process_temperature": 308.0,
+        "rotational_speed": 1500.0,
+        "torque": 40.0,
+        "tool_wear": 50.0,
+    }
     defaults.update(overrides)
     return SensorReading(**defaults)
 
@@ -55,8 +52,8 @@ def _make_reading(**overrides) -> SensorReading:
 # OPC UA resilience
 # ---------------------------------------------------------------------------
 
-class TestOPCUAResilience:
 
+class TestOPCUAResilience:
     def test_mode_is_simulation_before_connect(self):
         """Connector starts in SIMULATION mode — no implicit hardware assumption."""
         connector = OPCUAConnector()
@@ -102,13 +99,13 @@ class TestOPCUAResilience:
     def test_get_reading_always_tags_mode(self):
         """Every reading has data_source_mode set — never untagged."""
         connector = OPCUAConnector()
-        reading   = connector.get_reading()
+        reading = connector.get_reading()
         assert reading.data_source_mode in list(DataSourceMode)
 
     def test_get_reading_tagged_simulation_in_default_mode(self):
         """Readings in default mode are tagged SIMULATION."""
         connector = OPCUAConnector()
-        reading   = connector.get_reading()
+        reading = connector.get_reading()
         assert reading.data_source_mode == DataSourceMode.SIMULATION
 
     def test_get_reading_tagged_hardware_fallback_during_reconnect(self):
@@ -162,8 +159,8 @@ class TestOPCUAResilience:
 # MQTT resilience (unit-level — no real broker)
 # ---------------------------------------------------------------------------
 
-class TestMQTTResilience:
 
+class TestMQTTResilience:
     def test_handles_malformed_json_payload(self):
         """Malformed JSON -> ValueError, pipeline continues, does not crash."""
         bad_payload = b"not valid json {"
@@ -181,15 +178,15 @@ class TestMQTTResilience:
 
     def test_handles_future_timestamp(self):
         """Timestamp 2 hours in the future -> FUTURE_TIMESTAMP warning."""
-        future_ts = datetime.now(timezone.utc) + timedelta(hours=2)
-        reading   = _make_reading(timestamp=future_ts)
-        warnings  = validate_reading(reading)
+        future_ts = datetime.now(UTC) + timedelta(hours=2)
+        reading = _make_reading(timestamp=future_ts)
+        warnings = validate_reading(reading)
         assert any("FUTURE_TIMESTAMP" in w for w in warnings)
 
     def test_handles_stale_timestamp(self):
         """Reading timestamp > 5 minutes old -> STALE_DATA warning."""
-        old_ts   = datetime.now(timezone.utc) - timedelta(minutes=10)
-        reading  = _make_reading(timestamp=old_ts)
+        old_ts = datetime.now(UTC) - timedelta(minutes=10)
+        reading = _make_reading(timestamp=old_ts)
         warnings = validate_reading(reading)
         assert any("STALE_DATA" in w for w in warnings)
 
@@ -198,8 +195,8 @@ class TestMQTTResilience:
 # API resilience (unit-level)
 # ---------------------------------------------------------------------------
 
-class TestAPIResilience:
 
+class TestAPIResilience:
     def test_batch_size_limit_enforced(self):
         """
         /predict/batch with 101 readings should be rejected.
@@ -217,23 +214,25 @@ class TestAPIResilience:
         sklearn IsolationForest is not thread-safe during fit, but is safe during predict.
         """
         import threading
-        from haiip.core.anomaly import AnomalyDetector
+
         import numpy as np
+
+        from haiip.core.anomaly import AnomalyDetector
 
         detector = AnomalyDetector()
         X_train = np.random.default_rng(42).normal(size=(200, 5))
         detector.fit(X_train)
 
         features = {
-            "air_temperature":     298.0,
+            "air_temperature": 298.0,
             "process_temperature": 308.0,
-            "rotational_speed":    1500.0,
-            "torque":              40.0,
-            "tool_wear":           50.0,
+            "rotational_speed": 1500.0,
+            "torque": 40.0,
+            "tool_wear": 50.0,
         }
 
         results: list[dict] = []
-        errors:  list[Exception] = []
+        errors: list[Exception] = []
 
         def predict():
             try:
@@ -256,23 +255,23 @@ class TestAPIResilience:
 # Data quality guards
 # ---------------------------------------------------------------------------
 
-class TestDataQualityGuards:
 
+class TestDataQualityGuards:
     def test_nan_sensor_value_flagged(self):
         """SensorReading with NaN -> DATA_QUALITY_ERROR warning."""
-        reading  = _make_reading(air_temperature=float("nan"))
+        reading = _make_reading(air_temperature=float("nan"))
         warnings = validate_reading(reading)
         assert any("NaN" in w and "DATA_QUALITY_ERROR" in w for w in warnings)
 
     def test_inf_sensor_value_flagged(self):
         """SensorReading with Inf -> DATA_QUALITY_ERROR warning."""
-        reading  = _make_reading(torque=float("inf"))
+        reading = _make_reading(torque=float("inf"))
         warnings = validate_reading(reading)
         assert any("Inf" in w and "DATA_QUALITY_ERROR" in w for w in warnings)
 
     def test_negative_inf_flagged(self):
         """Negative infinity also flagged."""
-        reading  = _make_reading(rotational_speed=float("-inf"))
+        reading = _make_reading(rotational_speed=float("-inf"))
         warnings = validate_reading(reading)
         assert any("Inf" in w for w in warnings)
 
@@ -290,20 +289,20 @@ class TestDataQualityGuards:
 
     def test_valid_reading_has_no_warnings(self):
         """A normal sensor reading produces no quality warnings."""
-        reading  = _make_reading()
+        reading = _make_reading()
         warnings = validate_reading(reading)
         assert warnings == [], f"Unexpected warnings: {warnings}"
 
     def test_reading_includes_warnings_list(self):
         """SensorReading has data_quality_warnings field."""
         connector = OPCUAConnector()
-        reading   = connector.get_reading()
+        reading = connector.get_reading()
         assert hasattr(reading, "data_quality_warnings")
         assert isinstance(reading.data_quality_warnings, list)
 
     def test_mode_always_set_on_reading(self):
         """Every reading from get_reading() has a non-None mode."""
         connector = OPCUAConnector()
-        reading   = connector.get_reading()
+        reading = connector.get_reading()
         assert reading.data_source_mode is not None
         assert isinstance(reading.data_source_mode, DataSourceMode)

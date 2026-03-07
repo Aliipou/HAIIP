@@ -122,7 +122,7 @@ class EdgeModelSync:
         if self.api_key:
             req.add_header("Authorization", f"Bearer {self.api_key}")
 
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310
             return json.loads(resp.read().decode("utf-8"))
 
     def _download_and_install(self, cloud_meta: dict[str, Any]) -> None:
@@ -137,7 +137,7 @@ class EdgeModelSync:
 
             # Download ONNX model
             onnx_tmp = tmp_path / "model.onnx"
-            with urllib.request.urlopen(download_url, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(download_url, timeout=self.timeout) as resp:  # nosec B310
                 onnx_tmp.write_bytes(resp.read())
 
             # Verify hash
@@ -220,15 +220,17 @@ class EdgeMetricsReporter:
             self._buffer.pop(0)  # drop oldest to prevent OOM
             logger.warning("EdgeMetricsReporter buffer full — dropping oldest entry")
 
-        self._buffer.append({
-            "machine_id": self.machine_id,
-            "tenant_id": self.tenant_id,
-            "label": prediction.get("label"),
-            "confidence": prediction.get("confidence"),
-            "anomaly_score": prediction.get("anomaly_score"),
-            "latency_ms": round(latency_ms, 2),
-            "timestamp": time.time(),
-        })
+        self._buffer.append(
+            {
+                "machine_id": self.machine_id,
+                "tenant_id": self.tenant_id,
+                "label": prediction.get("label"),
+                "confidence": prediction.get("confidence"),
+                "anomaly_score": prediction.get("anomaly_score"),
+                "latency_ms": round(latency_ms, 2),
+                "timestamp": time.time(),
+            }
+        )
 
         if len(self._buffer) >= self.batch_size:
             self.flush()
@@ -241,7 +243,7 @@ class EdgeMetricsReporter:
         batch = self._buffer[: self.batch_size]
         try:
             self._send_batch(batch)
-            self._buffer = self._buffer[len(batch):]
+            self._buffer = self._buffer[len(batch) :]
             logger.debug("EdgeMetricsReporter flushed %d records", len(batch))
             return len(batch)
         except Exception as exc:  # noqa: BLE001
@@ -263,7 +265,7 @@ class EdgeMetricsReporter:
         if self.api_key:
             req.add_header("Authorization", f"Bearer {self.api_key}")
 
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310
             if resp.status not in (200, 201, 204):
                 raise RuntimeError(f"Cloud rejected metrics: HTTP {resp.status}")
 

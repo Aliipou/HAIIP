@@ -14,18 +14,17 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from haiip.core.torch_models import (
-    AnomalyAutoencoder,
-    FAILURE_MODES,
-    MaintenanceLSTM,
     _LIGHTNING_AVAILABLE,
     _TORCH_AVAILABLE,
+    FAILURE_MODES,
+    AnomalyAutoencoder,
+    MaintenanceLSTM,
 )
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -146,15 +145,24 @@ class TestAnomalyAutoencoderUntrained:
 
 
 class TestAnomalyAutoencoderFit:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_fit_sets_is_fitted(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         assert fitted_autoencoder.is_fitted
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_fit_sets_threshold(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         assert fitted_autoencoder._threshold > 0.0
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_fit_sets_scaler(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         assert fitted_autoencoder._scaler_mean is not None
         assert fitted_autoencoder._scaler_std is not None
@@ -183,44 +191,79 @@ class TestAnomalyAutoencoderFit:
 
 
 class TestAnomalyAutoencoderPredict:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_returns_required_keys(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1.0] * N_FEATURES)
-        for key in ("label", "confidence", "anomaly_score", "reconstruction_error", "threshold", "explanation"):
+        for key in (
+            "label",
+            "confidence",
+            "anomaly_score",
+            "reconstruction_error",
+            "threshold",
+            "explanation",
+        ):
             assert key in result, f"Missing key: {key}"
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_label_is_valid(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1.0] * N_FEATURES)
         assert result["label"] in ("normal", "anomaly")
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_confidence_in_range(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1.0] * N_FEATURES)
         assert 0.5 <= result["confidence"] <= 1.0
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_anomaly_score_in_range(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1.0] * N_FEATURES)
         assert 0.0 <= result["anomaly_score"] <= 1.0
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_accepts_list(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1.0, 2.0, 3.0, 4.0, 5.0])
         assert "label" in result
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_accepts_numpy(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict(np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
         assert "label" in result
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_predict_batch_length(self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_predict_batch_length(
+        self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray
+    ) -> None:
         results = fitted_autoencoder.predict_batch(normal_X[:10])
         assert len(results) == 10
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_predict_batch_all_have_keys(self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_predict_batch_all_have_keys(
+        self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray
+    ) -> None:
         results = fitted_autoencoder.predict_batch(normal_X[:5])
         for r in results:
             assert "label" in r
@@ -228,32 +271,47 @@ class TestAnomalyAutoencoderPredict:
 
 
 class TestAnomalyAutoencoderEdgeCases:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_nan_input(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         """NaN input should not crash — may produce NaN score but not exception."""
         features = [float("nan")] * N_FEATURES
         result = fitted_autoencoder.predict(features)
         assert "label" in result  # does not raise
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_inf_input(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         features = [float("inf")] * N_FEATURES
         result = fitted_autoencoder.predict(features)
         assert "label" in result
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_zeros(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([0.0] * N_FEATURES)
         assert result["label"] in ("normal", "anomaly")
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_very_large_values(self, fitted_autoencoder: AnomalyAutoencoder) -> None:
         result = fitted_autoencoder.predict([1e10] * N_FEATURES)
         assert result["label"] in ("normal", "anomaly")
 
 
 class TestAnomalyAutoencoderPersistence:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_save_and_load(self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path) -> None:
         fitted_autoencoder.save(tmp_path / "ae_model")
         loaded = AnomalyAutoencoder.load(tmp_path / "ae_model")
@@ -261,14 +319,22 @@ class TestAnomalyAutoencoderPersistence:
         assert loaded.n_features == fitted_autoencoder.n_features
         assert abs(loaded._threshold - fitted_autoencoder._threshold) < 1e-6
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_save_unfitted_raises(self, tmp_path: Path) -> None:
         m = AnomalyAutoencoder(n_features=N_FEATURES)
         with pytest.raises(RuntimeError, match="fitted"):
             m.save(tmp_path / "ae")
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_loaded_model_predicts(self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_loaded_model_predicts(
+        self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path
+    ) -> None:
         fitted_autoencoder.save(tmp_path / "ae_model")
         loaded = AnomalyAutoencoder.load(tmp_path / "ae_model")
         result = loaded.predict([1.0] * N_FEATURES)
@@ -276,8 +342,13 @@ class TestAnomalyAutoencoderPersistence:
 
 
 class TestAnomalyAutoencoderONNX:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_export_onnx_creates_file(self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_export_onnx_creates_file(
+        self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path
+    ) -> None:
         try:
             out = fitted_autoencoder.export_onnx(tmp_path / "model.onnx")
             assert out.exists()
@@ -286,8 +357,13 @@ class TestAnomalyAutoencoderONNX:
             # ONNX may not be installed — skip gracefully
             pytest.skip(f"ONNX export not available: {e}")
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_export_onnx_dir_path(self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_export_onnx_dir_path(
+        self, fitted_autoencoder: AnomalyAutoencoder, tmp_path: Path
+    ) -> None:
         try:
             out = fitted_autoencoder.export_onnx(tmp_path / "onnx_dir")
             assert out.name == "anomaly_autoencoder.onnx"
@@ -308,8 +384,13 @@ class TestAnomalyAutoencoderONNX:
 
 
 class TestAnomalyAutoencoderThreadSafety:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_concurrent_predict(self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_concurrent_predict(
+        self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray
+    ) -> None:
         """Concurrent reads on a fitted model must not crash."""
         errors: list[Exception] = []
 
@@ -367,11 +448,17 @@ class TestMaintenanceLSTMUntrained:
 
 
 class TestMaintenanceLSTMFit:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_fit_sets_fitted(self, fitted_lstm: MaintenanceLSTM) -> None:
         assert fitted_lstm.is_fitted
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_fit_without_rul(self, normal_X: np.ndarray, class_labels: np.ndarray) -> None:
         m = MaintenanceLSTM(n_features=N_FEATURES, seq_len=SEQ_LEN, max_epochs=2, batch_size=16)
         m.fit(normal_X, class_labels)
@@ -384,7 +471,9 @@ class TestMaintenanceLSTMFit:
                 with pytest.raises(ValueError, match="[Ii]nsufficient"):
                     m.fit(np.ones((10, N_FEATURES)), np.array(["no_failure"] * 10))
 
-    def test_fit_without_torch_sets_fitted(self, normal_X: np.ndarray, class_labels: np.ndarray) -> None:
+    def test_fit_without_torch_sets_fitted(
+        self, normal_X: np.ndarray, class_labels: np.ndarray
+    ) -> None:
         m = MaintenanceLSTM(n_features=N_FEATURES)
         with patch("haiip.core.torch_models._TORCH_AVAILABLE", False):
             m.fit(normal_X, class_labels)
@@ -392,54 +481,90 @@ class TestMaintenanceLSTMFit:
 
 
 class TestMaintenanceLSTMPredict:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_required_keys(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([1.0] * N_FEATURES)
-        for key in ("label", "confidence", "failure_probability", "rul_cycles", "class_probabilities", "explanation"):
+        for key in (
+            "label",
+            "confidence",
+            "failure_probability",
+            "rul_cycles",
+            "class_probabilities",
+            "explanation",
+        ):
             assert key in result
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_label_is_class(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([1.0] * N_FEATURES)
         assert result["label"] in fitted_lstm.class_names
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_rul_non_negative(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([1.0] * N_FEATURES)
         if result["rul_cycles"] is not None:
             assert result["rul_cycles"] >= 0
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_class_proba_sum_to_one(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([1.0] * N_FEATURES)
         total = sum(result["class_probabilities"].values())
         assert abs(total - 1.0) < 1e-3
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_failure_proba_in_range(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([1.0] * N_FEATURES)
         assert 0.0 <= result["failure_probability"] <= 1.0
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_predict_batch_returns_list(self, fitted_lstm: MaintenanceLSTM, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_predict_batch_returns_list(
+        self, fitted_lstm: MaintenanceLSTM, normal_X: np.ndarray
+    ) -> None:
         results = fitted_lstm.predict_batch(normal_X[:5])
         assert len(results) == 5
 
 
 class TestMaintenanceLSTMEdgeCases:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_nan(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([float("nan")] * N_FEATURES)
         assert "label" in result
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_predict_zeros(self, fitted_lstm: MaintenanceLSTM) -> None:
         result = fitted_lstm.predict([0.0] * N_FEATURES)
         assert result["label"] in fitted_lstm.class_names
 
 
 class TestMaintenanceLSTMPersistence:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_save_and_load(self, fitted_lstm: MaintenanceLSTM, tmp_path: Path) -> None:
         fitted_lstm.save(tmp_path / "lstm_model")
         loaded = MaintenanceLSTM.load(tmp_path / "lstm_model")
@@ -447,14 +572,22 @@ class TestMaintenanceLSTMPersistence:
         assert loaded.class_names == fitted_lstm.class_names
         assert loaded.n_features == fitted_lstm.n_features
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_save_unfitted_raises(self, tmp_path: Path) -> None:
         m = MaintenanceLSTM(n_features=N_FEATURES)
         with pytest.raises(RuntimeError, match="fitted|torch"):
             m.save(tmp_path / "lstm")
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_loaded_model_predict_consistent(self, fitted_lstm: MaintenanceLSTM, tmp_path: Path) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_loaded_model_predict_consistent(
+        self, fitted_lstm: MaintenanceLSTM, tmp_path: Path
+    ) -> None:
         fitted_lstm.save(tmp_path / "lstm_model")
         loaded = MaintenanceLSTM.load(tmp_path / "lstm_model")
         r1 = fitted_lstm.predict([1.0] * N_FEATURES)
@@ -463,7 +596,10 @@ class TestMaintenanceLSTMPersistence:
 
 
 class TestMaintenanceLSTMONNX:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_export_onnx_creates_file(self, fitted_lstm: MaintenanceLSTM, tmp_path: Path) -> None:
         try:
             out = fitted_lstm.export_onnx(tmp_path / "lstm.onnx")
@@ -479,7 +615,10 @@ class TestMaintenanceLSTMONNX:
 
 
 class TestMaintenanceLSTMThreadSafety:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_concurrent_predict(self, fitted_lstm: MaintenanceLSTM, normal_X: np.ndarray) -> None:
         errors: list[Exception] = []
 
@@ -504,7 +643,10 @@ class TestMaintenanceLSTMThreadSafety:
 
 
 class TestIntegration:
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_autoencoder_full_pipeline(self, normal_X: np.ndarray, tmp_path: Path) -> None:
         """Train → predict → save → load → predict again."""
         model = AnomalyAutoencoder(
@@ -517,7 +659,10 @@ class TestIntegration:
         r2 = loaded.predict(normal_X[0].tolist())
         assert r1["label"] == r2["label"]
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
     def test_maintenance_full_pipeline(
         self,
         normal_X: np.ndarray,
@@ -526,9 +671,7 @@ class TestIntegration:
         tmp_path: Path,
     ) -> None:
         """Train → predict → save → load → predict again."""
-        model = MaintenanceLSTM(
-            n_features=N_FEATURES, seq_len=SEQ_LEN, max_epochs=2, batch_size=16
-        )
+        model = MaintenanceLSTM(n_features=N_FEATURES, seq_len=SEQ_LEN, max_epochs=2, batch_size=16)
         model.fit(normal_X, class_labels, rul_values)
         r1 = model.predict(normal_X[0].tolist())
         model.save(tmp_path / "lstm")
@@ -536,17 +679,33 @@ class TestIntegration:
         r2 = loaded.predict(normal_X[0].tolist())
         assert r1["label"] == r2["label"]
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_sklearn_interface_parity_anomaly(self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_sklearn_interface_parity_anomaly(
+        self, fitted_autoencoder: AnomalyAutoencoder, normal_X: np.ndarray
+    ) -> None:
         """Output dict must have the same keys as sklearn AnomalyDetector."""
         required_sklearn_keys = {"label", "confidence", "anomaly_score", "explanation"}
         result = fitted_autoencoder.predict(normal_X[0].tolist())
         assert required_sklearn_keys.issubset(result.keys())
 
-    @pytest.mark.skipif(not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE), reason="Torch/Lightning required")
-    def test_sklearn_interface_parity_maintenance(self, fitted_lstm: MaintenanceLSTM, normal_X: np.ndarray) -> None:
+    @pytest.mark.skipif(
+        not (_TORCH_AVAILABLE and _LIGHTNING_AVAILABLE),
+        reason="Torch/Lightning required",
+    )
+    def test_sklearn_interface_parity_maintenance(
+        self, fitted_lstm: MaintenanceLSTM, normal_X: np.ndarray
+    ) -> None:
         """Output dict must have the same keys as sklearn MaintenancePredictor."""
-        required_keys = {"label", "confidence", "failure_probability", "rul_cycles", "explanation"}
+        required_keys = {
+            "label",
+            "confidence",
+            "failure_probability",
+            "rul_cycles",
+            "explanation",
+        }
         result = fitted_lstm.predict(normal_X[0].tolist())
         assert required_keys.issubset(result.keys())
 

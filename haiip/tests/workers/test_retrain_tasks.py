@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -44,9 +43,16 @@ class TestAutoRetrainPipelineTask:
             mock_settings.drift_threshold = 0.05
 
             import pandas as pd
+
             rng = np.random.default_rng(42)
             X = rng.normal(0, 1, (120, 5)).astype(np.float64)
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(auto_retrain_pipeline)
@@ -70,9 +76,16 @@ class TestAutoRetrainPipelineTask:
             mock_settings.drift_threshold = 0.05
 
             import pandas as pd
+
             rng = np.random.default_rng(42)
             X = rng.normal(0, 1, (120, 5)).astype(np.float64)
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(auto_retrain_pipeline)
@@ -107,7 +120,14 @@ class TestAutoRetrainPipelineTask:
             mock_settings.drift_threshold = 0.05
 
             import pandas as pd
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(auto_retrain_pipeline)
@@ -128,9 +148,16 @@ class TestAutoRetrainPipelineTask:
             mock_settings.drift_threshold = 0.05
 
             import pandas as pd
+
             rng = np.random.default_rng(42)
             X = rng.normal(0, 1, (120, 5)).astype(np.float64)
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(auto_retrain_pipeline)
@@ -162,14 +189,19 @@ class TestAutoRetrainPipelineTask:
             mock_settings.drift_threshold = 0.05
 
             import pandas as pd
+
             X = rng.normal(0, 1, (120, 5))
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(auto_retrain_pipeline)
-            result = auto_retrain_pipeline.__wrapped__(
-                self_mock, tenant_id="drifted"
-            )
+            result = auto_retrain_pipeline.__wrapped__(self_mock, tenant_id="drifted")
 
         assert "status" in result
 
@@ -218,9 +250,16 @@ class TestExportONNXModelTask:
         ):
             mock_settings.model_artifacts_path = str(tmp_path)
             import pandas as pd
+
             rng = np.random.default_rng(42)
             X = rng.normal(0, 1, (60, 5))
-            cols = ["air_temperature", "process_temperature", "rotational_speed", "torque", "tool_wear"]
+            cols = [
+                "air_temperature",
+                "process_temperature",
+                "rotational_speed",
+                "torque",
+                "tool_wear",
+            ]
             mock_data.return_value = pd.DataFrame(X, columns=cols)
 
             self_mock = _make_task_self(export_onnx_model)
@@ -270,9 +309,7 @@ class TestBenchmarkONNXModelTask:
             mock_settings.model_artifacts_path = str(tmp_path)
             mock_from.side_effect = RuntimeError("ORT crash")
 
-            result = benchmark_onnx_model(
-                tenant_id="crash_tenant", model_type="anomaly", n_runs=5
-            )
+            result = benchmark_onnx_model(tenant_id="crash_tenant", model_type="anomaly", n_runs=5)
 
         assert result["status"] == "error"
         assert "ORT crash" in result["error"]
@@ -295,12 +332,13 @@ class TestBenchmarkONNXModelTask:
 
         with (
             patch("haiip.workers.tasks.settings") as mock_settings,
-            patch("haiip.core.onnx_runtime.ONNXAnomalyDetector.from_onnx", return_value=mock_detector),
+            patch(
+                "haiip.core.onnx_runtime.ONNXAnomalyDetector.from_onnx",
+                return_value=mock_detector,
+            ),
         ):
             mock_settings.model_artifacts_path = str(tmp_path)
-            result = benchmark_onnx_model(
-                tenant_id="mock_tenant", model_type="anomaly", n_runs=5
-            )
+            result = benchmark_onnx_model(tenant_id="mock_tenant", model_type="anomaly", n_runs=5)
 
         assert result["status"] == "benchmarked"
         assert result["sla_pass"] is True

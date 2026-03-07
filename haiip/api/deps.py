@@ -23,6 +23,7 @@ _bearer = HTTPBearer(auto_error=True)
 
 # ── Token extraction ──────────────────────────────────────────────────────────
 
+
 def _extract_token(
     credentials: Annotated[HTTPAuthorizationCredentials, Security(_bearer)],
 ) -> str:
@@ -30,6 +31,7 @@ def _extract_token(
 
 
 # ── Current user ──────────────────────────────────────────────────────────────
+
 
 async def get_current_user(
     token: Annotated[str, Depends(_extract_token)],
@@ -51,7 +53,7 @@ async def get_current_user(
         tenant_id: str = payload["tenant_id"]
         jti: str = payload.get("jti", "")
     except (TokenError, KeyError):
-        raise credentials_exception
+        raise credentials_exception from None
 
     # ── Token revocation check ─────────────────────────────────────────────────
     if jti and await blacklist.is_revoked(jti):
@@ -72,6 +74,7 @@ async def get_current_user(
 
 
 # ── Role-based access ─────────────────────────────────────────────────────────
+
 
 def require_role(*roles: str):
     """Dependency factory — ensures current user has one of the given roles."""

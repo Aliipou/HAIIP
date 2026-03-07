@@ -84,8 +84,7 @@ def _do_login(tenant: str, email: str, password: str) -> None:
             st.error("Invalid credentials. Please check your email, password, and workspace.")
     except httpx.ConnectError:
         st.warning(
-            "Cannot reach API server. Running in **offline demo mode** — "
-            "data is simulated locally."
+            "Cannot reach API server. Running in **offline demo mode** — data is simulated locally."
         )
         _demo_login()
 
@@ -101,7 +100,13 @@ def _demo_login() -> None:
 
 
 def logout() -> None:
-    for key in ["access_token", "refresh_token", "tenant_slug", "user_email", "demo_mode"]:
+    for key in [
+        "access_token",
+        "refresh_token",
+        "tenant_slug",
+        "user_email",
+        "demo_mode",
+    ]:
         st.session_state.pop(key, None)
     st.rerun()
 

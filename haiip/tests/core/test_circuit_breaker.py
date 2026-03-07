@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import threading
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,11 +18,10 @@ from haiip.core.circuit_breaker import (
     get_redis_breaker,
 )
 
-
 # ── Basic FSM transitions ─────────────────────────────────────────────────────
 
-class TestCircuitBreakerFSM:
 
+class TestCircuitBreakerFSM:
     @pytest.fixture(autouse=True)
     def fresh_breaker(self):
         """Each test gets a fresh circuit breaker."""
@@ -84,7 +82,10 @@ class TestCircuitBreakerFSM:
         assert self.cb.state in (CircuitState.HALF_OPEN, CircuitState.CLOSED)
 
     def test_half_open_success_threshold_closes(self):
-        cb = CircuitBreaker(name="t", failure_threshold=3, recovery_timeout=0.01, success_threshold=2)
+        cb = CircuitBreaker(
+            name="t", failure_threshold=3, recovery_timeout=0.01, success_threshold=2
+        )
+
         def bad():
             raise ValueError("fail")
 
@@ -142,8 +143,8 @@ class TestCircuitBreakerFSM:
 
 # ── Decorator interface ───────────────────────────────────────────────────────
 
-class TestCircuitBreakerDecorator:
 
+class TestCircuitBreakerDecorator:
     def test_call_decorator(self):
         cb = CircuitBreaker(name="dec", failure_threshold=5)
 
@@ -184,8 +185,8 @@ class TestCircuitBreakerDecorator:
 
 # ── Context manager interface ─────────────────────────────────────────────────
 
-class TestCircuitBreakerContextManager:
 
+class TestCircuitBreakerContextManager:
     def test_context_manager_success(self):
         cb = CircuitBreaker(name="ctx", failure_threshold=5)
         with cb:
@@ -219,8 +220,8 @@ class TestCircuitBreakerContextManager:
 
 # ── Stats tracking ────────────────────────────────────────────────────────────
 
-class TestCircuitBreakerStats:
 
+class TestCircuitBreakerStats:
     def test_total_calls_incremented(self):
         cb = CircuitBreaker(name="stats", failure_threshold=10)
         for _ in range(3):
@@ -268,8 +269,8 @@ class TestCircuitBreakerStats:
 
 # ── State-change callback ─────────────────────────────────────────────────────
 
-class TestStateChangeCallback:
 
+class TestStateChangeCallback:
     def test_callback_fires_on_open(self):
         transitions = []
         cb = CircuitBreaker(
@@ -300,8 +301,8 @@ class TestStateChangeCallback:
 
 # ── Registry ─────────────────────────────────────────────────────────────────
 
-class TestCircuitBreakerRegistry:
 
+class TestCircuitBreakerRegistry:
     @pytest.fixture(autouse=True)
     def fresh_registry(self):
         CircuitBreakerRegistry._instance = None
@@ -368,8 +369,8 @@ class TestCircuitBreakerRegistry:
 
 # ── Thread safety ─────────────────────────────────────────────────────────────
 
-class TestCircuitBreakerThreadSafety:
 
+class TestCircuitBreakerThreadSafety:
     def test_concurrent_calls_dont_corrupt_state(self):
         cb = CircuitBreaker(name="concurrent", failure_threshold=50, recovery_timeout=99)
         errors = []

@@ -1,7 +1,5 @@
 """Tests for ROI calculator logic (pure business logic, no Streamlit)."""
 
-import pytest
-
 
 def _calculate_roi(
     n_machines: int,
@@ -41,9 +39,15 @@ def _calculate_roi(
 
 def test_roi_positive_with_reasonable_inputs():
     result = _calculate_roi(
-        n_machines=6, unplanned_stops=8, avg_downtime_hours=6,
-        hourly_output=850, repair_cost=3200, tool_changes=12,
-        tool_cost=420, downtime_reduction_pct=45, tool_reduction_pct=40,
+        n_machines=6,
+        unplanned_stops=8,
+        avg_downtime_hours=6,
+        hourly_output=850,
+        repair_cost=3200,
+        tool_changes=12,
+        tool_cost=420,
+        downtime_reduction_pct=45,
+        tool_reduction_pct=40,
         implementation_cost=18000,
     )
     assert result["roi_pct"] > 0
@@ -53,9 +57,15 @@ def test_roi_positive_with_reasonable_inputs():
 
 def test_roi_payback_under_12_months_reasonable():
     result = _calculate_roi(
-        n_machines=6, unplanned_stops=8, avg_downtime_hours=6,
-        hourly_output=850, repair_cost=3200, tool_changes=12,
-        tool_cost=420, downtime_reduction_pct=45, tool_reduction_pct=40,
+        n_machines=6,
+        unplanned_stops=8,
+        avg_downtime_hours=6,
+        hourly_output=850,
+        repair_cost=3200,
+        tool_changes=12,
+        tool_cost=420,
+        downtime_reduction_pct=45,
+        tool_reduction_pct=40,
         implementation_cost=18000,
     )
     assert result["payback_months"] < 24
@@ -63,9 +73,15 @@ def test_roi_payback_under_12_months_reasonable():
 
 def test_roi_zero_reduction_equals_full_cost():
     result = _calculate_roi(
-        n_machines=2, unplanned_stops=4, avg_downtime_hours=4,
-        hourly_output=500, repair_cost=1000, tool_changes=5,
-        tool_cost=200, downtime_reduction_pct=0, tool_reduction_pct=0,
+        n_machines=2,
+        unplanned_stops=4,
+        avg_downtime_hours=4,
+        hourly_output=500,
+        repair_cost=1000,
+        tool_changes=5,
+        tool_cost=200,
+        downtime_reduction_pct=0,
+        tool_reduction_pct=0,
         implementation_cost=5000,
     )
     assert result["total_savings"] == 0.0
@@ -74,9 +90,15 @@ def test_roi_zero_reduction_equals_full_cost():
 
 def test_roi_negative_with_high_implementation_cost():
     result = _calculate_roi(
-        n_machines=1, unplanned_stops=1, avg_downtime_hours=1,
-        hourly_output=100, repair_cost=100, tool_changes=1,
-        tool_cost=100, downtime_reduction_pct=30, tool_reduction_pct=30,
+        n_machines=1,
+        unplanned_stops=1,
+        avg_downtime_hours=1,
+        hourly_output=100,
+        repair_cost=100,
+        tool_changes=1,
+        tool_cost=100,
+        downtime_reduction_pct=30,
+        tool_reduction_pct=30,
         implementation_cost=1_000_000,
     )
     assert result["net_benefit"] < 0
@@ -90,9 +112,15 @@ def test_roi_savings_scale_with_machines():
 
 def test_total_current_cost_is_positive():
     result = _calculate_roi(
-        n_machines=3, unplanned_stops=5, avg_downtime_hours=3,
-        hourly_output=600, repair_cost=2000, tool_changes=10,
-        tool_cost=300, downtime_reduction_pct=40, tool_reduction_pct=35,
+        n_machines=3,
+        unplanned_stops=5,
+        avg_downtime_hours=3,
+        hourly_output=600,
+        repair_cost=2000,
+        tool_changes=10,
+        tool_cost=300,
+        downtime_reduction_pct=40,
+        tool_reduction_pct=35,
         implementation_cost=10000,
     )
     assert result["total_current_cost"] > 0

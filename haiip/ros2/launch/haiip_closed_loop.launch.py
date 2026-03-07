@@ -16,38 +16,49 @@ from launch_ros.actions import Node
 
 def generate_launch_description() -> LaunchDescription:
     machine_id = LaunchConfiguration("machine_id")
-    api_url    = LaunchConfiguration("api_url")
-    hz         = LaunchConfiguration("hz")
+    api_url = LaunchConfiguration("api_url")
+    hz = LaunchConfiguration("hz")
     fault_mode = LaunchConfiguration("fault_mode")
 
-    return LaunchDescription([
-        DeclareLaunchArgument("machine_id", default_value="pump-01"),
-        DeclareLaunchArgument("api_url",    default_value="http://localhost:8000"),
-        DeclareLaunchArgument("hz",         default_value="50"),
-        DeclareLaunchArgument("fault_mode", default_value="false"),
-
-        Node(
-            package="haiip", executable="vibration_publisher",
-            name="vibration_publisher",
-            parameters=[{"machine_id": machine_id, "hz": hz, "fault_mode": fault_mode}],
-            output="screen",
-        ),
-        Node(
-            package="haiip", executable="inference_node",
-            name="inference_node",
-            parameters=[{"machine_ids": [machine_id], "api_url": api_url, "sample_every_n": hz}],
-            output="screen",
-        ),
-        Node(
-            package="haiip", executable="economic_node",
-            name="economic_node",
-            parameters=[{"machine_ids": [machine_id]}],
-            output="screen",
-        ),
-        Node(
-            package="haiip", executable="action_node",
-            name="action_node",
-            parameters=[{"machine_ids": [machine_id], "override_ttl_sec": 600.0}],
-            output="screen",
-        ),
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("machine_id", default_value="pump-01"),
+            DeclareLaunchArgument("api_url", default_value="http://localhost:8000"),
+            DeclareLaunchArgument("hz", default_value="50"),
+            DeclareLaunchArgument("fault_mode", default_value="false"),
+            Node(
+                package="haiip",
+                executable="vibration_publisher",
+                name="vibration_publisher",
+                parameters=[{"machine_id": machine_id, "hz": hz, "fault_mode": fault_mode}],
+                output="screen",
+            ),
+            Node(
+                package="haiip",
+                executable="inference_node",
+                name="inference_node",
+                parameters=[
+                    {
+                        "machine_ids": [machine_id],
+                        "api_url": api_url,
+                        "sample_every_n": hz,
+                    }
+                ],
+                output="screen",
+            ),
+            Node(
+                package="haiip",
+                executable="economic_node",
+                name="economic_node",
+                parameters=[{"machine_ids": [machine_id]}],
+                output="screen",
+            ),
+            Node(
+                package="haiip",
+                executable="action_node",
+                name="action_node",
+                parameters=[{"machine_ids": [machine_id], "override_ttl_sec": 600.0}],
+                output="screen",
+            ),
+        ]
+    )

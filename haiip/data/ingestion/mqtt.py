@@ -20,9 +20,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MQTTReading:
     """Normalised reading received from MQTT broker."""
+
     machine_id: str
     tenant_id: str
     topic: str
@@ -117,7 +119,7 @@ class MQTTConnector:
                 pass
         self._connected = False
 
-    async def __aenter__(self) -> "MQTTConnector":
+    async def __aenter__(self) -> MQTTConnector:
         await self.connect()
         return self
 
@@ -174,9 +176,9 @@ class MQTTConnector:
                 try:
                     ts = datetime.fromisoformat(ts_str)
                 except ValueError:
-                    ts = datetime.now(timezone.utc)
+                    ts = datetime.now(UTC)
             else:
-                ts = datetime.now(timezone.utc)
+                ts = datetime.now(UTC)
 
             return MQTTReading(
                 machine_id=machine_id,
@@ -195,16 +197,20 @@ class MQTTConnector:
     def add_callback(self, callback: Callable[[MQTTReading], None]) -> None:
         self._callbacks.append(callback)
 
-    async def publish(self, machine_id: str, sensor_name: str, value: float, unit: str = "") -> None:
+    async def publish(
+        self, machine_id: str, sensor_name: str, value: float, unit: str = ""
+    ) -> None:
         """Publish a single sensor reading (for testing/simulation)."""
         if not self._connected or not self._client:
             return
         topic = f"{self.topic_prefix}/{self.tenant_id}/{machine_id}/{sensor_name}"
-        payload = json.dumps({
-            "value": value,
-            "unit": unit,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        payload = json.dumps(
+            {
+                "value": value,
+                "unit": unit,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         await self._client.publish(topic, payload=payload, qos=1)
 
     @property
@@ -231,6 +237,7 @@ class MockMQTTPublisher:
 
     async def run(self, n_cycles: int = 100) -> None:
         import numpy as np
+
         rng = np.random.default_rng(42)
 
         for _ in range(n_cycles):
@@ -239,10 +246,16 @@ class MockMQTTPublisher:
                     machine_id, "air_temperature", float(rng.normal(300.0, 2.0)), "K"
                 )
                 await self.connector.publish(
-                    machine_id, "process_temperature", float(rng.normal(310.0, 1.5)), "K"
+                    machine_id,
+                    "process_temperature",
+                    float(rng.normal(310.0, 1.5)),
+                    "K",
                 )
                 await self.connector.publish(
-                    machine_id, "rotational_speed", float(max(0, rng.normal(1538.0, 179.0))), "rpm"
+                    machine_id,
+                    "rotational_speed",
+                    float(max(0, rng.normal(1538.0, 179.0))),
+                    "rpm",
                 )
                 await self.connector.publish(
                     machine_id, "torque", float(max(0, rng.normal(40.0, 9.8))), "Nm"

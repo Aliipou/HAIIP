@@ -39,16 +39,18 @@ logger = logging.getLogger(__name__)
 
 # ── Tool definitions ──────────────────────────────────────────────────────────
 
+
 class ToolName(str, Enum):
-    SEARCH_KB         = "search_knowledge_base"
-    ANOMALY_DETECT    = "run_anomaly_detection"
-    CALCULATE_RUL     = "calculate_rul"
+    SEARCH_KB = "search_knowledge_base"
+    ANOMALY_DETECT = "run_anomaly_detection"
+    CALCULATE_RUL = "calculate_rul"
     ASSESS_COMPLIANCE = "assess_compliance"
 
 
 @dataclass
 class ToolCall:
     """One invocation of an agent tool — stored for audit / explainability."""
+
     tool: str
     input: dict[str, Any]
     output: Any
@@ -60,6 +62,7 @@ class ToolCall:
 @dataclass
 class AgentThought:
     """Chain-of-thought step (ReAct: Thought → Action → Observation)."""
+
     thought: str
     tool_calls: list[ToolCall] = field(default_factory=list)
 
@@ -67,6 +70,7 @@ class AgentThought:
 @dataclass
 class AgentResponse:
     """Final structured response returned to callers."""
+
     query: str
     answer: str
     confidence: float
@@ -81,6 +85,7 @@ class AgentResponse:
 
 # ── Tool implementations ──────────────────────────────────────────────────────
 
+
 def _tool_search_kb(
     query: str,
     rag_engine: Any | None,
@@ -88,7 +93,11 @@ def _tool_search_kb(
 ) -> dict[str, Any]:
     """Search the industrial knowledge base via FAISS RAG."""
     if rag_engine is None:
-        return {"answer": "Knowledge base not available.", "sources": [], "confidence": 0.0}
+        return {
+            "answer": "Knowledge base not available.",
+            "sources": [],
+            "confidence": 0.0,
+        }
     result = rag_engine.query(query, machine_id=machine_id)
     return {
         "answer": result.answer,
@@ -103,10 +112,20 @@ def _tool_anomaly_detect(
 ) -> dict[str, Any]:
     """Run IsolationForest anomaly detection on sensor readings."""
     if detector is None:
-        return {"label": "unknown", "confidence": 0.0, "anomaly_score": 0.0, "is_anomaly": False}
+        return {
+            "label": "unknown",
+            "confidence": 0.0,
+            "anomaly_score": 0.0,
+            "is_anomaly": False,
+        }
     vals = list(features.values())
     if not vals:
-        return {"label": "unknown", "confidence": 0.0, "anomaly_score": 0.0, "is_anomaly": False}
+        return {
+            "label": "unknown",
+            "confidence": 0.0,
+            "anomaly_score": 0.0,
+            "is_anomaly": False,
+        }
     result = detector.predict(vals)
     return {
         "label": result["label"],
@@ -123,10 +142,20 @@ def _tool_calculate_rul(
 ) -> dict[str, Any]:
     """Estimate Remaining Useful Life and failure mode with GradientBoosting."""
     if predictor is None:
-        return {"label": "unknown", "rul_cycles": -1, "confidence": 0.0, "failure_probability": 0.0}
+        return {
+            "label": "unknown",
+            "rul_cycles": -1,
+            "confidence": 0.0,
+            "failure_probability": 0.0,
+        }
     vals = list(features.values())
     if not vals:
-        return {"label": "unknown", "rul_cycles": -1, "confidence": 0.0, "failure_probability": 0.0}
+        return {
+            "label": "unknown",
+            "rul_cycles": -1,
+            "confidence": 0.0,
+            "failure_probability": 0.0,
+        }
     result = predictor.predict(vals)
     return {
         "label": result["label"],
@@ -139,7 +168,11 @@ def _tool_calculate_rul(
 def _tool_assess_compliance(compliance_engine: Any | None) -> dict[str, Any]:
     """Assess EU AI Act compliance status via ComplianceEngine."""
     if compliance_engine is None:
-        return {"risk_level": "unknown", "compliant": False, "transparency_required": True}
+        return {
+            "risk_level": "unknown",
+            "compliant": False,
+            "transparency_required": True,
+        }
     assessment = compliance_engine.classify_risk()
     return {
         "risk_level": assessment.risk_level.value,
@@ -150,6 +183,7 @@ def _tool_assess_compliance(compliance_engine: Any | None) -> dict[str, Any]:
 
 
 # ── Industrial Agent ──────────────────────────────────────────────────────────
+
 
 class IndustrialAgent:
     """ReAct-style agentic RAG for industrial maintenance queries.
@@ -178,20 +212,49 @@ class IndustrialAgent:
     # Intent keywords mapped to tools (lightweight NLU, no LLM needed)
     INTENT_KEYWORDS: dict[ToolName, list[str]] = {
         ToolName.ANOMALY_DETECT: [
-            "anomaly", "abnormal", "unusual", "vibration", "sensor",
-            "reading", "detect", "temperature spike", "noise",
+            "anomaly",
+            "abnormal",
+            "unusual",
+            "vibration",
+            "sensor",
+            "reading",
+            "detect",
+            "temperature spike",
+            "noise",
         ],
         ToolName.CALCULATE_RUL: [
-            "rul", "remaining", "wear", "lifespan", "failure",
-            "breakdown", "when", "predict failure", "how long",
+            "rul",
+            "remaining",
+            "wear",
+            "lifespan",
+            "failure",
+            "breakdown",
+            "when",
+            "predict failure",
+            "how long",
         ],
         ToolName.ASSESS_COMPLIANCE: [
-            "compliance", "ai act", "gdpr", "regulation", "legal",
-            "audit", "article 52", "transparency", "risk",
+            "compliance",
+            "ai act",
+            "gdpr",
+            "regulation",
+            "legal",
+            "audit",
+            "article 52",
+            "transparency",
+            "risk",
         ],
         ToolName.SEARCH_KB: [
-            "manual", "procedure", "standard", "iso", "how to",
-            "what is", "explain", "document", "guideline", "recommend",
+            "manual",
+            "procedure",
+            "standard",
+            "iso",
+            "how to",
+            "what is",
+            "explain",
+            "document",
+            "guideline",
+            "recommend",
         ],
     }
 
@@ -233,12 +296,13 @@ class IndustrialAgent:
 
         # Step 1: Plan — determine which tools are needed
         tools_needed = self._plan_tools(query, sensor_readings)
-        thoughts.append(AgentThought(
-            thought=(
-                f"Query: '{query[:80]}'. "
-                f"Planning: [{', '.join(t.value for t in tools_needed)}]"
-            ),
-        ))
+        thoughts.append(
+            AgentThought(
+                thought=(
+                    f"Query: '{query[:80]}'. Planning: [{', '.join(t.value for t in tools_needed)}]"
+                ),
+            )
+        )
 
         # Step 2: Act — execute each planned tool
         tool_results: dict[str, Any] = {}
@@ -414,7 +478,11 @@ class IndustrialAgent:
                 urgency = (
                     "**Critical — schedule maintenance immediately**"
                     if rul_cycles < 20
-                    else ("Plan maintenance soon" if rul_cycles < 100 else "No immediate action needed")
+                    else (
+                        "Plan maintenance soon"
+                        if rul_cycles < 100
+                        else "No immediate action needed"
+                    )
                 )
                 parts.append(
                     f"**Remaining Useful Life**: ~{rul_cycles} cycles. "
@@ -456,9 +524,7 @@ class IndustrialAgent:
             )
 
         answer = "\n\n".join(parts)
-        confidence = (
-            sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
-        )
+        confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
         return answer, round(confidence, 4)
 
     # ── Human oversight ────────────────────────────────────────────────────────

@@ -73,7 +73,12 @@ async def test_acknowledge_alert(client: AsyncClient, admin_headers):
     # Create alert first
     create_resp = await client.post(
         "/api/v1/alerts",
-        params={"machine_id": "M-001", "severity": "medium", "title": "Test", "message": "Msg"},
+        params={
+            "machine_id": "M-001",
+            "severity": "medium",
+            "title": "Test",
+            "message": "Msg",
+        },
         headers=admin_headers,
     )
     alert_id = create_resp.json()["id"]
@@ -92,7 +97,12 @@ async def test_acknowledge_alert(client: AsyncClient, admin_headers):
 async def test_acknowledge_already_acknowledged(client: AsyncClient, admin_headers):
     create_resp = await client.post(
         "/api/v1/alerts",
-        params={"machine_id": "M-002", "severity": "low", "title": "Test", "message": "Msg"},
+        params={
+            "machine_id": "M-002",
+            "severity": "low",
+            "title": "Test",
+            "message": "Msg",
+        },
         headers=admin_headers,
     )
     alert_id = create_resp.json()["id"]

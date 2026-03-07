@@ -50,7 +50,9 @@ class TokenBlacklist:
             return self._redis
         try:
             import redis.asyncio as aioredis
+
             from haiip.api.config import get_settings
+
             settings = get_settings()
             url = getattr(settings, "redis_url", None)
             if url:
@@ -100,7 +102,7 @@ class TokenBlacklist:
 
     def _prune(self) -> None:
         """Remove expired entries from in-memory store."""
-        now     = time.monotonic()
+        now = time.monotonic()
         expired = [k for k, v in self._store.items() if v < now]
         for k in expired:
             del self._store[k]

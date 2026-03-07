@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,15 +10,15 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-
 # ── EdgeInferenceEngine ───────────────────────────────────────────────────────
 
-class TestEdgeInferenceEngine:
 
+class TestEdgeInferenceEngine:
     @pytest.fixture
     def model_dir(self, tmp_path) -> Path:
         """A model dir with sklearn artifacts from a real fitted detector."""
         import joblib
+
         from haiip.core.anomaly import AnomalyDetector
 
         rng = np.random.default_rng(42)
@@ -36,12 +35,14 @@ class TestEdgeInferenceEngine:
 
     def test_load_sklearn_mode(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         assert engine.mode == "sklearn"
         assert engine.is_loaded
 
     def test_predict_returns_required_keys(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         result = engine.predict([300.0, 310.0, 1538.0, 40.0, 100.0])
         assert "label" in result
@@ -50,18 +51,21 @@ class TestEdgeInferenceEngine:
 
     def test_predict_label_valid(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         result = engine.predict([300.0, 310.0, 1538.0, 40.0, 100.0])
         assert result["label"] in ("normal", "anomaly")
 
     def test_predict_confidence_in_range(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         result = engine.predict([300.0, 310.0, 1538.0, 40.0, 100.0])
         assert 0.0 <= result["confidence"] <= 1.0
 
     def test_predict_numpy_input(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         features = np.array([300.0, 310.0, 1538.0, 40.0, 100.0])
         result = engine.predict(features)
@@ -69,17 +73,20 @@ class TestEdgeInferenceEngine:
 
     def test_not_loaded_raises(self):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine()
         with pytest.raises(RuntimeError, match="not loaded"):
             engine.predict([1.0, 2.0, 3.0, 4.0, 5.0])
 
     def test_load_missing_dir_raises(self, tmp_path):
         from haiip.edge.inference import EdgeInferenceEngine
+
         with pytest.raises(FileNotFoundError):
             EdgeInferenceEngine.load(tmp_path / "nonexistent")
 
     def test_load_empty_dir_raises(self, tmp_path):
         from haiip.edge.inference import EdgeInferenceEngine
+
         empty = tmp_path / "empty"
         empty.mkdir()
         with pytest.raises(FileNotFoundError):
@@ -87,11 +94,13 @@ class TestEdgeInferenceEngine:
 
     def test_is_loaded_false_before_load(self):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine()
         assert not engine.is_loaded
 
     def test_mode_not_loaded_before_load(self):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine()
         assert engine.mode == "not_loaded"
 
@@ -103,6 +112,7 @@ class TestEdgeInferenceEngine:
         onnx_path = model_dir / "model.onnx"
         onnx_path.write_bytes(b"fake-onnx-content")
         import hashlib
+
         real_hash = hashlib.sha256(onnx_path.read_bytes()).hexdigest()
         manifest = {"model_hash_sha256": real_hash}
         (model_dir / "manifest.json").write_text(json.dumps(manifest))
@@ -126,6 +136,7 @@ class TestEdgeInferenceEngine:
     def test_manifest_unreadable_logs_warning(self, model_dir):
         """Corrupt manifest file just logs a warning, doesn't crash."""
         from haiip.edge.inference import EdgeInferenceEngine
+
         (model_dir / "manifest.json").write_text("not: valid: json: {{")
         engine = EdgeInferenceEngine.load(model_dir)
         assert engine.is_loaded
@@ -133,13 +144,14 @@ class TestEdgeInferenceEngine:
     def test_onnx_mode_predict(self, model_dir):
         """If ONNX session mock is set, _predict_onnx path executes."""
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         engine._mode = "onnx"
 
         mock_session = MagicMock()
         mock_session.get_inputs.return_value = [MagicMock(name="float_input")]
         mock_session.run.return_value = [
-            np.array([-1]),       # label: anomaly
+            np.array([-1]),  # label: anomaly
             np.array([{"anomaly_score": -0.4}]),  # scores
         ]
         engine._onnx_session = mock_session
@@ -149,13 +161,15 @@ class TestEdgeInferenceEngine:
 
     def test_sklearn_mode_returns_mode_field(self, model_dir):
         from haiip.edge.inference import EdgeInferenceEngine
+
         engine = EdgeInferenceEngine.load(model_dir)
         result = engine.predict([300.0, 310.0, 1538.0, 40.0, 100.0])
         assert result["mode"] == "sklearn"
 
     def test_export_onnx_raises_without_skl2onnx(self, model_dir):
-        from haiip.edge.inference import EdgeInferenceEngine
         from haiip.core.anomaly import AnomalyDetector
+        from haiip.edge.inference import EdgeInferenceEngine
+
         rng = np.random.default_rng(42)
         X = rng.normal(size=(100, 5))
         det = AnomalyDetector().fit(X)
@@ -167,11 +181,12 @@ class TestEdgeInferenceEngine:
 
 # ── EdgeModelSync ─────────────────────────────────────────────────────────────
 
-class TestEdgeModelSync:
 
+class TestEdgeModelSync:
     @pytest.fixture
     def sync(self, tmp_path):
         from haiip.edge.sync import EdgeModelSync
+
         return EdgeModelSync(
             cloud_api_url="https://api.haiip.test",
             model_dir=tmp_path / "model",
@@ -187,6 +202,7 @@ class TestEdgeModelSync:
 
     def test_sync_returns_false_when_up_to_date(self, sync, tmp_path):
         import hashlib
+
         model_dir = tmp_path / "model"
         model_dir.mkdir()
         content = b"onnx-model-bytes"
@@ -201,6 +217,7 @@ class TestEdgeModelSync:
 
     def test_sync_interval_skips_check(self, tmp_path):
         from haiip.edge.sync import EdgeModelSync
+
         sync = EdgeModelSync(
             cloud_api_url="https://api.test",
             model_dir=tmp_path,
@@ -216,6 +233,7 @@ class TestEdgeModelSync:
 
     def test_sync_force_bypasses_interval(self, tmp_path):
         from haiip.edge.sync import EdgeModelSync
+
         sync = EdgeModelSync(
             cloud_api_url="https://api.test",
             model_dir=tmp_path,
@@ -269,11 +287,12 @@ class TestEdgeModelSync:
 
 # ── EdgeMetricsReporter ────────────────────────────────────────────────────────
 
-class TestEdgeMetricsReporter:
 
+class TestEdgeMetricsReporter:
     @pytest.fixture
     def reporter(self):
         from haiip.edge.sync import EdgeMetricsReporter
+
         return EdgeMetricsReporter(
             cloud_api_url="https://api.test",
             tenant_id="test",

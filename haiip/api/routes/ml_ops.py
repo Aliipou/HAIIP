@@ -31,7 +31,10 @@ router = APIRouter(prefix="/ml-ops")
 class RetrainRequest(BaseModel):
     tenant_id: str = Field(default="default", description="Target tenant")
     feedback_accuracy: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Current model accuracy (triggers if < threshold)"
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Current model accuracy (triggers if < threshold)",
     )
     force_reason: str | None = Field(
         default=None,
@@ -88,7 +91,9 @@ async def trigger_retrain(
         )
         logger.info(
             "Retrain task enqueued: task_id=%s, tenant=%s, user=%s",
-            task.id, request.tenant_id, current_user.email,
+            task.id,
+            request.tenant_id,
+            current_user.email,
         )
         return {
             "task_id": task.id,
@@ -132,7 +137,9 @@ async def export_onnx(
         )
         logger.info(
             "ONNX export enqueued: task_id=%s, tenant=%s, model=%s",
-            task.id, request.tenant_id, request.model_type,
+            task.id,
+            request.tenant_id,
+            request.model_type,
         )
         return {
             "task_id": task.id,
@@ -191,7 +198,7 @@ async def run_benchmark(
 )
 async def list_model_versions(
     tenant_id: str = "default",
-    current_user: EngineerUser = Depends(),
+    current_user: EngineerUser = Depends(),  # noqa: B008
 ) -> dict[str, Any]:
     from haiip.core.model_registry import get_active_version, list_active_versions
 
@@ -214,7 +221,7 @@ async def list_model_versions(
 )
 async def pipeline_status(
     tenant_id: str = "default",
-    current_user: EngineerUser = Depends(),
+    current_user: EngineerUser = Depends(),  # noqa: B008
 ) -> dict[str, Any]:
     """Return latest pipeline state — no Celery required (reads artifact files)."""
     from pathlib import Path

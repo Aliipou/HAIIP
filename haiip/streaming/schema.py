@@ -17,6 +17,7 @@ from typing import Any
 @dataclass
 class SensorMessage:
     """Kafka message on topic haiip.sensors.raw."""
+
     machine_id: str
     tenant_id: str
     air_temperature: float
@@ -25,14 +26,14 @@ class SensorMessage:
     torque: float
     tool_wear: float
     timestamp: float = field(default_factory=time.time)
-    source: str = "opcua"           # opcua | mqtt | manual | simulation
+    source: str = "opcua"  # opcua | mqtt | manual | simulation
     data_quality_warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "SensorMessage":
+    def from_dict(cls, d: dict[str, Any]) -> SensorMessage:
         return cls(
             machine_id=d["machine_id"],
             tenant_id=d["tenant_id"],
@@ -60,23 +61,24 @@ class SensorMessage:
 @dataclass
 class PredictionMessage:
     """Kafka message on topic haiip.predictions."""
+
     machine_id: str
     tenant_id: str
     prediction_id: str
-    label: str                  # normal | anomaly
+    label: str  # normal | anomaly
     confidence: float
     anomaly_score: float
     explanation: dict[str, Any]
     sensor_timestamp: float
     prediction_timestamp: float = field(default_factory=time.time)
     shap_values: dict[str, float] | None = None
-    economic_action: str | None = None   # REPAIR_NOW | SCHEDULE | MONITOR | IGNORE
+    economic_action: str | None = None  # REPAIR_NOW | SCHEDULE | MONITOR | IGNORE
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PredictionMessage":
+    def from_dict(cls, d: dict[str, Any]) -> PredictionMessage:
         return cls(
             machine_id=d["machine_id"],
             tenant_id=d["tenant_id"],
@@ -95,10 +97,11 @@ class PredictionMessage:
 @dataclass
 class AlertMessage:
     """Kafka message on topic haiip.alerts."""
+
     machine_id: str
     tenant_id: str
-    alert_type: str         # anomaly_detected | high_anomaly_rate | drift_detected
-    severity: str           # info | warning | critical
+    alert_type: str  # anomaly_detected | high_anomaly_rate | drift_detected
+    severity: str  # info | warning | critical
     message: str
     prediction_id: str | None = None
     timestamp: float = field(default_factory=time.time)

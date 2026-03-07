@@ -43,7 +43,7 @@ except ImportError:
 LATENCY_SLA_MS = 50.0
 
 
-def _make_session(onnx_path: str) -> "ort.InferenceSession":
+def _make_session(onnx_path: str) -> ort.InferenceSession:
     """Create an optimised InferenceSession.
 
     Provider priority: CUDAExecutionProvider → TensorrtExecutionProvider → CPUExecutionProvider
@@ -55,7 +55,11 @@ def _make_session(onnx_path: str) -> "ort.InferenceSession":
 
     providers: list[str] = []
     available = ort.get_available_providers()
-    for p in ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"]:
+    for p in [
+        "TensorrtExecutionProvider",
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]:
         if p in available:
             providers.append(p)
 
@@ -121,7 +125,7 @@ class ONNXAnomalyDetector:
         onnx_path: str | Path,
         meta_path: str | Path | None = None,
         **kwargs: Any,
-    ) -> "ONNXAnomalyDetector":
+    ) -> ONNXAnomalyDetector:
         """Convenience constructor — loads meta.npz if alongside the .onnx file."""
         onnx_path = Path(onnx_path)
         if meta_path is None:
@@ -164,12 +168,18 @@ class ONNXAnomalyDetector:
         self._latency_history.append(latency_ms)
 
         if latency_ms > self.latency_sla_ms:
-            logger.warning("Inference SLA breached: %.1f ms > %.0f ms", latency_ms, self.latency_sla_ms)
+            logger.warning(
+                "Inference SLA breached: %.1f ms > %.0f ms",
+                latency_ms,
+                self.latency_sla_ms,
+            )
 
         error = float(np.mean((seq - reconstructed) ** 2))
         normalized = float(np.clip(error / (self.threshold * 2.0 + 1e-8), 0.0, 1.0))
         label = "anomaly" if error > self.threshold else "normal"
-        confidence = float(np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0))
+        confidence = float(
+            np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0)
+        )
 
         z_scores = arr_norm[0].tolist()
         explanation = {
@@ -199,9 +209,9 @@ class ONNXAnomalyDetector:
 
         arr_norm = (arr - self.scaler_mean) / self.scaler_std
         # Build batch of windows: (batch, seq_len, n_features)
-        batch = np.stack(
-            [np.tile(row, (self.seq_len, 1)) for row in arr_norm], axis=0
-        ).astype(np.float32)
+        batch = np.stack([np.tile(row, (self.seq_len, 1)) for row in arr_norm], axis=0).astype(
+            np.float32
+        )
 
         t0 = time.perf_counter()
         reconstructed = self._session.run(None, {self._input_name: batch})[0]
@@ -209,26 +219,30 @@ class ONNXAnomalyDetector:
 
         errors = np.mean((batch - reconstructed) ** 2, axis=(1, 2))
         results = []
-        for i, (row, error) in enumerate(zip(arr_norm, errors)):
+        for _i, (row, error) in enumerate(zip(arr_norm, errors)):
             normalized = float(np.clip(error / (self.threshold * 2.0 + 1e-8), 0.0, 1.0))
             label = "anomaly" if error > self.threshold else "normal"
-            confidence = float(np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0))
+            confidence = float(
+                np.clip(normalized if label == "anomaly" else 1.0 - normalized, 0.5, 1.0)
+            )
             z_scores = row.tolist()
             explanation = {
                 name: round(float(z), 3)
                 for name, z in zip(self.feature_names, z_scores)
                 if abs(z) > 1.5
             }
-            results.append({
-                "label": label,
-                "confidence": round(confidence, 4),
-                "anomaly_score": round(normalized, 4),
-                "reconstruction_error": round(float(error), 6),
-                "threshold": round(self.threshold, 6),
-                "latency_ms": round(latency_ms / len(arr), 2),
-                "sla_ok": (latency_ms / len(arr)) <= self.latency_sla_ms,
-                "explanation": explanation,
-            })
+            results.append(
+                {
+                    "label": label,
+                    "confidence": round(confidence, 4),
+                    "anomaly_score": round(normalized, 4),
+                    "reconstruction_error": round(float(error), 6),
+                    "threshold": round(self.threshold, 6),
+                    "latency_ms": round(latency_ms / len(arr), 2),
+                    "sla_ok": (latency_ms / len(arr)) <= self.latency_sla_ms,
+                    "explanation": explanation,
+                }
+            )
         return results
 
     # ── Benchmarking ──────────────────────────────────────────────────────────
@@ -319,7 +333,14 @@ class ONNXMaintenancePredictor:
         self.onnx_path = str(onnx_path)
         self.seq_len = seq_len
         self.n_features = n_features
-        self.class_names = class_names or ["no_failure", "TWF", "HDF", "PWF", "OSF", "RNF"]
+        self.class_names = class_names or [
+            "no_failure",
+            "TWF",
+            "HDF",
+            "PWF",
+            "OSF",
+            "RNF",
+        ]
         self.scaler_mean = scaler_mean if scaler_mean is not None else np.zeros(n_features)
         self.scaler_std = scaler_std if scaler_std is not None else np.ones(n_features)
         self.rul_mean = rul_mean
@@ -345,7 +366,7 @@ class ONNXMaintenancePredictor:
         meta_path: str | Path | None = None,
         classes_path: str | Path | None = None,
         **kwargs: Any,
-    ) -> "ONNXMaintenancePredictor":
+    ) -> ONNXMaintenancePredictor:
         """Load from .onnx + optional meta.npz / classes.json."""
         import json
 
@@ -388,7 +409,11 @@ class ONNXMaintenancePredictor:
         self._latency_history.append(latency_ms)
 
         if latency_ms > self.latency_sla_ms:
-            logger.warning("Inference SLA breached: %.1f ms > %.0f ms", latency_ms, self.latency_sla_ms)
+            logger.warning(
+                "Inference SLA breached: %.1f ms > %.0f ms",
+                latency_ms,
+                self.latency_sla_ms,
+            )
 
         logits = outputs[0][0]  # (n_classes,)
         rul_norm = float(outputs[1][0]) if len(outputs) > 1 else 0.0
@@ -402,7 +427,9 @@ class ONNXMaintenancePredictor:
         pred_proba = float(proba[pred_idx])
         rul_cycles = max(0, int(round(rul_norm * self.rul_std + self.rul_mean)))
 
-        normal_idx = self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
+        normal_idx = (
+            self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
+        )
         failure_proba = 1.0 - float(proba[normal_idx]) if normal_idx >= 0 else pred_proba
 
         return {
@@ -411,8 +438,7 @@ class ONNXMaintenancePredictor:
             "failure_probability": round(failure_proba, 4),
             "rul_cycles": rul_cycles,
             "class_probabilities": {
-                cls: round(float(p), 4)
-                for cls, p in zip(self.class_names, proba)
+                cls: round(float(p), 4) for cls, p in zip(self.class_names, proba)
             },
             "latency_ms": round(latency_ms, 2),
             "sla_ok": latency_ms <= self.latency_sla_ms,
@@ -428,9 +454,9 @@ class ONNXMaintenancePredictor:
             return [self._fallback_result() for _ in arr]
 
         arr_norm = (arr - self.scaler_mean) / self.scaler_std
-        batch = np.stack(
-            [np.tile(row, (self.seq_len, 1)) for row in arr_norm], axis=0
-        ).astype(np.float32)
+        batch = np.stack([np.tile(row, (self.seq_len, 1)) for row in arr_norm], axis=0).astype(
+            np.float32
+        )
 
         t0 = time.perf_counter()
         outputs = self._session.run(None, {self._input_name: batch})
@@ -445,26 +471,33 @@ class ONNXMaintenancePredictor:
             exp_l = np.exp(logits - logits.max())
             proba = exp_l / exp_l.sum()
             pred_idx = int(np.argmax(proba))
-            pred_label = self.class_names[pred_idx] if pred_idx < len(self.class_names) else "unknown"
+            pred_label = (
+                self.class_names[pred_idx] if pred_idx < len(self.class_names) else "unknown"
+            )
             rul_norm = float(all_rul[i])
             rul_cycles = max(0, int(round(rul_norm * self.rul_std + self.rul_mean)))
 
-            normal_idx = self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
-            failure_proba = 1.0 - float(proba[normal_idx]) if normal_idx >= 0 else float(proba[pred_idx])
+            normal_idx = (
+                self.class_names.index("no_failure") if "no_failure" in self.class_names else -1
+            )
+            failure_proba = (
+                1.0 - float(proba[normal_idx]) if normal_idx >= 0 else float(proba[pred_idx])
+            )
 
-            results.append({
-                "label": pred_label,
-                "confidence": round(float(proba[pred_idx]), 4),
-                "failure_probability": round(failure_proba, 4),
-                "rul_cycles": rul_cycles,
-                "class_probabilities": {
-                    cls: round(float(p), 4)
-                    for cls, p in zip(self.class_names, proba)
-                },
-                "latency_ms": round(latency_ms / len(arr), 2),
-                "sla_ok": (latency_ms / len(arr)) <= self.latency_sla_ms,
-                "explanation": {"model": "BiLSTM-ONNX-batch"},
-            })
+            results.append(
+                {
+                    "label": pred_label,
+                    "confidence": round(float(proba[pred_idx]), 4),
+                    "failure_probability": round(failure_proba, 4),
+                    "rul_cycles": rul_cycles,
+                    "class_probabilities": {
+                        cls: round(float(p), 4) for cls, p in zip(self.class_names, proba)
+                    },
+                    "latency_ms": round(latency_ms / len(arr), 2),
+                    "sla_ok": (latency_ms / len(arr)) <= self.latency_sla_ms,
+                    "explanation": {"model": "BiLSTM-ONNX-batch"},
+                }
+            )
         return results
 
     def benchmark(self, n_runs: int = 100) -> dict[str, float]:

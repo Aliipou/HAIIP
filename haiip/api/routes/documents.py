@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from haiip.api.config import get_settings
 from haiip.api.deps import CurrentUser, EngineerUser
 from haiip.api.schemas import QueryRequest, QueryResponse
-from haiip.core.rag import Document, RAGEngine
+from haiip.core.rag import RAGEngine
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

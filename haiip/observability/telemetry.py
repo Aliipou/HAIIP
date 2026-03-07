@@ -21,7 +21,8 @@ import functools
 import logging
 import os
 import time
-from typing import Any, Callable, Generator, TypeVar
+from collections.abc import Callable, Generator
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ try:
         BatchSpanProcessor,
         ConsoleSpanExporter,
     )
+
     _OTEL_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _OTEL_AVAILABLE = False
@@ -43,10 +45,13 @@ except ImportError:  # pragma: no cover
 
 class _NoopSpan:
     """Null-object span used when OTel is unavailable."""
+
     def set_attribute(self, key: str, value: Any) -> None: ...
     def record_exception(self, exc: Exception) -> None: ...
     def set_status(self, *args: Any, **kwargs: Any) -> None: ...
-    def __enter__(self) -> "_NoopSpan": return self
+    def __enter__(self) -> _NoopSpan:
+        return self
+
     def __exit__(self, *args: Any) -> None: ...
 
 
@@ -71,11 +76,11 @@ class HAIIPTracer:
 
     # SLA thresholds (ms) — from HAIIP Model Card
     SLA_THRESHOLDS: dict[str, float] = {
-        "predict":          200.0,
-        "agent_query":     2000.0,
-        "rag_query":       1500.0,
+        "predict": 200.0,
+        "agent_query": 2000.0,
+        "rag_query": 1500.0,
         "federated_round": 5000.0,
-        "default":          500.0,
+        "default": 500.0,
     }
 
     def __init__(
@@ -100,6 +105,7 @@ class HAIIPTracer:
                 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                     OTLPSpanExporter,
                 )
+
                 exporter = OTLPSpanExporter(endpoint=endpoint)
             except ImportError:
                 logger.warning("OTLP exporter not installed — falling back to console")
@@ -138,26 +144,33 @@ class HAIIPTracer:
                     sp.record_exception(exc)
                     if _OTEL_AVAILABLE:
                         from opentelemetry.trace import StatusCode
+
                         sp.set_status(StatusCode.ERROR, str(exc))
                     raise
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        threshold  = self.SLA_THRESHOLDS.get(name, self.SLA_THRESHOLDS["default"])
+        threshold = self.SLA_THRESHOLDS.get(name, self.SLA_THRESHOLDS["default"])
         if check_sla and elapsed_ms > threshold:
             logger.warning(
                 "sla_breach",
-                extra={"span": name, "elapsed_ms": round(elapsed_ms, 1),
-                       "threshold_ms": threshold},
+                extra={
+                    "span": name,
+                    "elapsed_ms": round(elapsed_ms, 1),
+                    "threshold_ms": threshold,
+                },
             )
 
     def instrument(self, span_name: str) -> Callable[[F], F]:
         """Decorator version of span()."""
+
         def decorator(fn: F) -> F:
             @functools.wraps(fn)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 with self.span(span_name):
                     return fn(*args, **kwargs)
+
             return wrapper  # type: ignore[return-value]
+
         return decorator
 
 

@@ -7,7 +7,7 @@ Security decisions:
 - Token type claim prevents refresh tokens being used as access tokens
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -26,6 +26,7 @@ TOKEN_TYPE_REFRESH = "refresh"
 
 # ── Password ──────────────────────────────────────────────────────────────────
 
+
 def hash_password(plain: str) -> str:
     """Return bcrypt hash of plain-text password."""
     return _pwd_context.hash(plain)
@@ -38,13 +39,14 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # ── Token creation ────────────────────────────────────────────────────────────
 
+
 def _create_token(
     subject: str,
     token_type: str,
     extra_claims: dict[str, Any],
     expires_delta: timedelta,
 ) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": subject,
         "type": token_type,
@@ -81,6 +83,7 @@ def create_refresh_token(user_id: str, tenant_id: str) -> str:
 
 
 # ── Token verification ────────────────────────────────────────────────────────
+
 
 class TokenError(Exception):
     """Raised when a token is invalid, expired, or of the wrong type."""

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from haiip.core.data_privacy import (
-    DataPrivacyEngine,
-    PIIDetectionResult,
-    ErasureRequest,
     DataExportResult,
+    DataPrivacyEngine,
+    ErasureRequest,
+    PIIDetectionResult,
 )
 
 
@@ -82,9 +80,18 @@ class TestScrubPII:
 
     def test_all_sensitive_fields(self):
         sensitive_fields = [
-            "email", "username", "full_name", "name", "phone",
-            "address", "ip_address", "user_agent", "password",
-            "hashed_password", "access_token", "refresh_token",
+            "email",
+            "username",
+            "full_name",
+            "name",
+            "phone",
+            "address",
+            "ip_address",
+            "user_agent",
+            "password",
+            "hashed_password",
+            "access_token",
+            "refresh_token",
         ]
         data = {f: f"value_{f}" for f in sensitive_fields}
         result = self.engine.scrub_pii(data)
@@ -212,28 +219,26 @@ class TestConsentManagement:
         assert "legal_basis" in missing
 
     def test_consent_not_expired(self):
-        recent = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        recent = (datetime.now(UTC) - timedelta(days=30)).isoformat()
         assert not DataPrivacyEngine.is_consent_expired(recent, expiry_days=365)
 
     def test_consent_expired(self):
-        old = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=400)).isoformat()
         assert DataPrivacyEngine.is_consent_expired(old, expiry_days=365)
 
     def test_malformed_date_treated_as_expired(self):
         assert DataPrivacyEngine.is_consent_expired("not-a-date")
 
     def test_consent_expired_custom_window(self):
-        two_months_ago = (datetime.now(timezone.utc) - timedelta(days=61)).isoformat()
+        two_months_ago = (datetime.now(UTC) - timedelta(days=61)).isoformat()
         assert DataPrivacyEngine.is_consent_expired(two_months_ago, expiry_days=60)
 
     def test_consent_not_expired_custom_window(self):
-        one_month_ago = (datetime.now(timezone.utc) - timedelta(days=29)).isoformat()
+        one_month_ago = (datetime.now(UTC) - timedelta(days=29)).isoformat()
         assert not DataPrivacyEngine.is_consent_expired(one_month_ago, expiry_days=60)
 
     def test_z_suffix_iso_date_parsed(self):
-        recent = (datetime.now(timezone.utc) - timedelta(days=10)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        recent = (datetime.now(UTC) - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
         assert not DataPrivacyEngine.is_consent_expired(recent, expiry_days=365)
 
 
@@ -258,12 +263,12 @@ class TestDataMinimization:
 
 class TestRetentionPolicy:
     def _make_record(self, days_ago: int) -> dict:
-        ts = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
         return {"ts": ts, "val": 1}
 
     def test_keeps_recent_deletes_old(self):
         records = [
-            self._make_record(5),   # within 30d → keep
+            self._make_record(5),  # within 30d → keep
             self._make_record(40),  # outside 30d → delete
         ]
         kept, deleted = DataPrivacyEngine.apply_retention_policy(records, "ts", max_age_days=30)
@@ -308,9 +313,7 @@ class TestRetentionPolicy:
 
 class TestDataclasses:
     def test_erasure_request_defaults(self):
-        req = ErasureRequest(
-            tenant_id="t-1", subject_id="u-1", requested_at="2024-01-01T00:00:00Z"
-        )
+        req = ErasureRequest(tenant_id="t-1", subject_id="u-1", requested_at="2024-01-01T00:00:00Z")
         assert req.tables_affected == []
         assert req.records_deleted == 0
         assert req.status == "pending"
