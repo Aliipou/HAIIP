@@ -10,8 +10,8 @@
 | Field | Value |
 |-------|-------|
 | **Name** | HAIIP Predictive Maintenance & Anomaly Detection Suite |
-| **Version** | 0.1.0 |
-| **Type** | Ensemble: IsolationForest (anomaly) + GradientBoosting (maintenance/RUL) |
+| **Version** | 0.3.0 |
+| **Type** | Ensemble: IsolationForest (anomaly) + GradientBoosting (maintenance/RUL) + PyTorch Lightning LSTM models + ONNX Runtime edge inference |
 | **Developed by** | NextIndustriAI RDI Project (Centria UAS) |
 | **Date** | 2026 |
 | **License** | Proprietary (RDI deliverable) |
@@ -37,6 +37,32 @@
 - KS Test (Kolmogorov-Smirnov) for distribution shift
 - Population Stability Index (PSI) per feature
 - Page-Hinkley online change-point detection
+
+**Deep Learning Models (PyTorch Lightning — v0.3.0):**
+
+`AnomalyAutoencoder` — LSTM encoder-decoder, trained unsupervised on normal data.
+- Input: sliding window of shape `(seq_len, n_features)`, default `(10, 5)`
+- Reconstruction error threshold: 95th percentile of training errors
+- Output: same dict interface as `AnomalyDetector` — `label`, `confidence`, `anomaly_score`, `explanation`
+- Export: `model.export_onnx(path)` — opset 17, dynamic batch axis
+
+`MaintenanceLSTM` — Bidirectional LSTM with dual output heads.
+- Classification head: 6-class softmax (same failure modes as GradientBoosting)
+- RUL head: Softplus activation (guarantees RUL ≥ 0)
+- Input: sliding window `(seq_len, n_features)`
+- Output: same dict as `MaintenancePredictor` — `label`, `failure_probability`, `rul_cycles`
+
+**ONNX Runtime Edge Inference (v0.3.0):**
+- `ONNXAnomalyDetector` / `ONNXMaintenancePredictor` — load from `.onnx`, run via ORT
+- Latency target: **p99 ≤ 50 ms** on CPU (enforced at runtime, warning on breach)
+- Provider priority: TensorRT → CUDA → CPU
+- Graph optimization: `ORT_ENABLE_ALL` + `do_constant_folding=True`
+
+**Auto-Retraining Pipeline (v0.3.0):**
+- `RetrainTrigger` fires on drift severity, accuracy drop, or volume threshold
+- `ChampionChallenger` promotes challenger only if F1 gain ≥ 0.01 and AUC regression ≤ 0.02
+- Full audit trail: every `RetrainEvent` records metrics, timestamps, trigger reason
+- Celery beat schedule: runs every 6 hours per tenant
 
 ---
 
@@ -171,8 +197,11 @@ No demographic factors apply (industrial sensor data, no personal information).
 2. Unsupervised anomaly detection has ~5% false positive rate by design
 3. RUL accuracy decreases beyond 150 cycles on CMAPSS test set
 4. Models trained primarily on European SME equipment data
-5. Real-time latency of 1–5 seconds (OPC UA/MQTT pipeline)
+5. Real-time latency of 1–5 seconds (OPC UA/MQTT pipeline) — ONNX reduces this to < 50 ms for inference only
 6. Human review required for all critical (severity > 0.7) detections
+7. PyTorch Lightning models require more training data than sklearn equivalents (minimum ~50 samples for windowed sequences)
+8. ONNX export uses opset 17; older ONNX Runtime versions (< 1.15) may not support all ops
+9. Champion-challenger promotion uses validation F1 only; production monitoring is still operator responsibility
 
 ### Recommendations for Deployment
 - Establish baseline anomaly rate for each machine before enabling alerting
@@ -187,4 +216,6 @@ No demographic factors apply (industrial sensor data, no personal information).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 0.1.0 | 2026 | Initial release — AI4I + CMAPSS + CWRU training |
+| 0.1.0 | 2026 | Initial release — AI4I + CMAPSS + CWRU training, IsolationForest + GradientBoosting |
+| 0.2.0 | 2026 | Economic AI, Federated Learning, Human Oversight metrics, Observability |
+| 0.3.0 | 2026 | PyTorch Lightning models, ONNX Runtime edge inference, AutoRetrain champion-challenger pipeline |

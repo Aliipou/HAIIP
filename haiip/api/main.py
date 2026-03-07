@@ -26,8 +26,10 @@ from haiip.api.models import (  # noqa: F401 — imported for side-effect (metad
     Tenant,
     User,
 )
+from haiip.api.correlation import CorrelationIDMiddleware
 from haiip.api.middleware import SecurityMiddleware
 from haiip.api.routes import admin, agent, alerts, auth, documents, economic, feedback, metrics, predict
+from haiip.api.routes import gdpr, active_learning_routes, ml_ops
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -64,7 +66,11 @@ def create_app() -> FastAPI:
     )
 
     # ── Middleware ─────────────────────────────────────────────────────────────
-    # SecurityMiddleware first: rate limiting + headers (outermost layer)
+    # Middleware order (outermost → innermost):
+    # 1. CorrelationID — injects X-Request-ID, binds to structlog context
+    # 2. SecurityMiddleware — rate limiting, security headers
+    # 3. CORS
+    application.add_middleware(CorrelationIDMiddleware)
     application.add_middleware(SecurityMiddleware)
     application.add_middleware(
         CORSMiddleware,
@@ -126,6 +132,51 @@ def create_app() -> FastAPI:
     application.include_router(admin.router, prefix=prefix, tags=["admin"])
     application.include_router(agent.router, prefix=prefix, tags=["agent"])
     application.include_router(economic.router, prefix=prefix, tags=["economic"])
+    application.include_router(gdpr.router, prefix=prefix, tags=["GDPR"])
+    application.include_router(active_learning_routes.router, prefix=prefix, tags=["Active Learning"])
+    application.include_router(ml_ops.router, prefix=prefix, tags=["ML Ops"])
+
+    # ── API info (root) ────────────────────────────────────────────────────────
+    @application.get(
+        "/api/v1/",
+        tags=["info"],
+        summary="API capabilities and version",
+        description="Returns platform version, available endpoints, and feature flags.",
+    )
+    async def api_info() -> dict[str, Any]:
+        return {
+            "name": "HAIIP — Human-Aligned Industrial Intelligence Platform",
+            "version": "0.3.0",
+            "api_version": "v1",
+            "description": "Production-grade AI for Nordic SME predictive maintenance",
+            "features": {
+                "anomaly_detection": True,
+                "predictive_maintenance": True,
+                "rul_estimation": True,
+                "drift_detection": True,
+                "auto_retraining": True,
+                "onnx_edge_inference": True,
+                "agentic_rag": True,
+                "federated_learning": True,
+                "eu_ai_act_compliance": True,
+                "human_oversight": True,
+                "gdpr": True,
+            },
+            "endpoints": {
+                "docs": "/api/docs",
+                "openapi": "/api/openapi.json",
+                "health": "/health",
+                "metrics": "/metrics",
+                "predict": "/api/v1/predict",
+                "ml_ops": "/api/v1/ml-ops/pipeline-status",
+            },
+            "sla": {
+                "inference_latency_p99_ms": 50,
+                "api_latency_p99_ms": 250,
+                "uptime_target_pct": 99.0,
+            },
+            "compliance": ["EU AI Act Art.52", "GDPR Art.17", "IEC 61508"],
+        }
 
     # ── Health check ──────────────────────────────────────────────────────────
     @application.get("/health", include_in_schema=False)
@@ -135,7 +186,7 @@ def create_app() -> FastAPI:
             "status": "healthy" if db_ok else "degraded",
             "database": db_ok,
             "uptime_seconds": round(time.monotonic() - _start_time, 2),
-            "version": "0.1.0",
+            "version": "0.3.0",
         }
 
     return application

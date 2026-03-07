@@ -38,6 +38,9 @@ dependencies = [
 
     # Deep Learning
     "torch>=2.3.0",
+    "lightning>=2.2.0",
+    "onnxruntime>=1.18.0",
+    "onnx>=1.16.0",
 
     # RAG / LLM
     "langchain>=0.2.0",
@@ -105,7 +108,7 @@ ignore = ["ANN101", "ANN102"]
 # ── Pytest ────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["haiip/tests"]
 addopts = "--cov=haiip --cov-report=term-missing --cov-fail-under=80"
 
 # ── Coverage ──────────────────────────────────────────────────────────────────

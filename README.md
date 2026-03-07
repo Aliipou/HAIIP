@@ -46,13 +46,20 @@ HAIIP gives an SME a deployable system that:
 |                                                                          |
 |   Data Sources            AI Core                  Interfaces            |
 |   -----------             -------                  ----------            |
-|   OPC UA (PLC)    -->     AnomalyDetector          Streamlit (10 pages)  |
-|   MQTT broker     -->     MaintenancePredictor      Dark industrial HMI   |
-|   Vibration CSV   -->     DriftDetector             Demo mode (no auth)   |
-|   Simulator       -->     RAGEngine                                       |
-|                           IndustrialAgent (ReAct)   FastAPI               |
-|                           ComplianceEngine          REST + WebSocket      |
-|                           FeedbackEngine            /api/docs             |
+|   OPC UA (PLC)    -->     AnomalyDetector (IF)      Streamlit (10 pages)  |
+|   MQTT broker     -->     MaintenancePredictor (GB) Dark industrial HMI   |
+|   Vibration CSV   -->     AnomalyAutoencoder (LSTM) Demo mode (no auth)   |
+|   Simulator       -->     MaintenanceLSTM (BiLSTM)                        |
+|                           DriftDetector             FastAPI               |
+|                           AutoRetrainPipeline       REST + WebSocket      |
+|                           RAGEngine + Agent         /api/docs             |
+|                           ComplianceEngine                                |
+|                                                                          |
+|   Edge Inference Layer (NEW)                                             |
+|   ----------------------                                                 |
+|   ONNX Runtime (≤50ms) -> ONNXAnomalyDetector -> ONNXMaintPredictor     |
+|   Jetson / Hailo / Industrial PC compatible                              |
+|   Champion-Challenger auto-promotion — zero-downtime model swap         |
 |                                                                          |
 |   ROS2 Closed Loop                                                       |
 |   -----------------                                                      |
@@ -79,9 +86,12 @@ HAIIP gives an SME a deployable system that:
 
 | Layer | Feature | Detail |
 |-------|---------|--------|
-| **AI** | Anomaly Detection | IsolationForest — AUC-ROC >= 0.91 on AI4I 2020 |
-| **AI** | Predictive Maintenance | GradientBoosting — 6 failure modes + RUL, MAE <= 18 cycles |
+| **AI** | Anomaly Detection | IsolationForest + LSTM Autoencoder — AUC-ROC >= 0.91 on AI4I 2020 |
+| **AI** | Predictive Maintenance | GradientBoosting + BiLSTM — 6 failure modes + RUL, MAE <= 18 cycles |
 | **AI** | Drift Detection | KS test + PSI + Page-Hinkley — three-layer monitoring |
+| **AI** | Auto-Retraining | Champion-Challenger pipeline — automated drift→retrain→promote cycle |
+| **Edge** | ONNX Runtime | ≤50ms inference on Jetson / Hailo / Industrial PC (p99 SLA enforced) |
+| **Edge** | PyTorch Lightning | Structured Lightning training — clean fit/eval/export separation |
 | **AI** | RAG Document Q&A | FAISS + sentence-transformers + Groq LLM |
 | **AI** | Agentic Diagnosis | ReAct tool-calling agent — natural language -> diagnosis |
 | **Robotics** | ROS2 Closed Loop | Sensor -> AI -> Economic decision -> actuator -> human override |
@@ -124,6 +134,83 @@ Output: `{ label, confidence, failure_probability, rul_cycles }`
 | NASA CMAPSS FD001 | MAE (cycles) | <= 25 |
 | NASA CMAPSS FD001 | R2 | >= 0.70 |
 
+### PyTorch Lightning Deep Models
+
+In addition to the sklearn ensemble, HAIIP includes Lightning-backed deep models for use cases where temporal dependencies matter:
+
+| Model | Class | Architecture | Use |
+|-------|-------|-------------|-----|
+| Anomaly Autoencoder | `AnomalyAutoencoder` | LSTM encoder-decoder | Unsupervised anomaly via reconstruction error |
+| Maintenance LSTM | `MaintenanceLSTM` | Bidirectional LSTM, dual-head | Failure classification + RUL regression |
+
+Both expose the same `predict()` / `predict_batch()` interface as sklearn models — drop-in replacement.
+
+```python
+from haiip.core.torch_models import AnomalyAutoencoder
+
+model = AnomalyAutoencoder(n_features=5, seq_len=10, max_epochs=30)
+model.fit(X_train)                          # trains on normal data only
+result = model.predict([298.1, 308.6, 1551, 42.8, 0])
+# → {"label": "normal", "confidence": 0.87, "anomaly_score": 0.12,
+#    "reconstruction_error": 0.003, "threshold": 0.009, "explanation": {...}}
+
+onnx_path = model.export_onnx("artifacts/anomaly.onnx")
+```
+
+### ONNX Runtime Edge Inference
+
+Exported models run via `onnxruntime` on edge hardware (Jetson, Hailo, Industrial PC).
+Latency is measured per-call, p95/p99 logged, SLA breach triggers a warning.
+
+```python
+from haiip.core.onnx_runtime import ONNXAnomalyDetector
+
+detector = ONNXAnomalyDetector.from_onnx("artifacts/anomaly.onnx")
+result   = detector.predict([298.1, 308.6, 1551, 42.8, 0])
+# → {"label": "normal", "latency_ms": 4.2, "sla_ok": True, ...}
+
+stats = detector.benchmark(n_runs=200)
+# → {"p50_ms": 3.8, "p99_ms": 6.1, "sla_pass_rate": 1.0}
+```
+
+SLA target: **p99 ≤ 50 ms** on CPU (Industrial PC). GPU/NPU achieves < 5 ms.
+
+### Automatic Retraining Pipeline
+
+`AutoRetrainPipeline` monitors three trigger signals and orchestrates a champion-challenger evaluation cycle:
+
+```
+Triggers (any one fires retraining):
+  1. Drift severity == "drift" for ≥ 2 features  (KS + PSI)
+  2. Rolling feedback accuracy < 0.80
+  3. > 10,000 new samples since last retrain
+
+Cycle:
+  trigger → train challenger (IsolationForest or custom train_fn)
+           → evaluate F1/AUC on validation set
+           → promote if challenger.F1 >= champion.F1 + 0.01
+           → audit event recorded (always)
+```
+
+```python
+from haiip.core.auto_retrain import AutoRetrainPipeline, RetrainTrigger
+
+pipeline = AutoRetrainPipeline(tenant_id="sme-fi")
+pipeline.register_champion(model, X_val, y_val)
+
+event = pipeline.maybe_retrain(X_new, drift_results=drift_results, feedback_accuracy=0.74)
+# → RetrainEvent(status=COMPLETE, promoted=True, challenger_f1=0.89, champion_f1=0.85)
+```
+
+**REST API** (requires Engineer role):
+
+```
+POST /api/v1/ml-ops/retrain          trigger retraining
+POST /api/v1/ml-ops/export-onnx      export champion to ONNX
+POST /api/v1/ml-ops/benchmark        latency benchmark
+GET  /api/v1/ml-ops/pipeline-status  model readiness + drift status
+```
+
 ### Three-Layer Drift Detection
 
 ```
@@ -132,7 +219,7 @@ Layer 2 -- PSI            population stability index  (> 0.2 = alert, > 0.25 = r
 Layer 3 -- Page-Hinkley   online sequential changepoint detection
 ```
 
-When PSI exceeds 0.25 or operator feedback accumulates beyond 50 samples, retraining queues automatically via Celery.
+When drift severity reaches "drift" level on ≥ 2 features, `AutoRetrainPipeline` fires automatically via Celery beat (every 6 hours).
 
 ### Agentic RAG (ReAct)
 
@@ -651,22 +738,25 @@ Full datasheets following Gebru et al. (2021) format: [`docs/DATASET_CARD.md`](d
 |----------|----------|
 | Model Card (Mitchell et al., 2019) | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) |
 | Dataset Card (Gebru et al., 2021) | [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md) |
+| ML Ops Runbook | [`docs/ML_OPS_RUNBOOK.md`](docs/ML_OPS_RUNBOOK.md) |
 | Honest Limitations Document | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) |
 | Results Register | [`docs/RESULTS.md`](docs/RESULTS.md) |
 | EU AI Act compliance engine | [`haiip/core/compliance.py`](haiip/core/compliance.py) |
+| PyTorch Lightning models | [`haiip/core/torch_models.py`](haiip/core/torch_models.py) |
+| ONNX Runtime inference | [`haiip/core/onnx_runtime.py`](haiip/core/onnx_runtime.py) |
+| Auto-retraining pipeline | [`haiip/core/auto_retrain.py`](haiip/core/auto_retrain.py) |
 | Non-IID federated scenario | [`haiip/core/federated_realistic.py`](haiip/core/federated_realistic.py) |
 | Economic site calibration | [`haiip/core/economic_calibration.py`](haiip/core/economic_calibration.py) |
 | Operator simulation model | [`haiip/core/oversight_simulation.py`](haiip/core/oversight_simulation.py) |
 | Transparency report generator | `ComplianceEngine.generate_transparency_report()` |
 | Security tests (OWASP Top 10) | [`haiip/tests/security/`](haiip/tests/security/) |
-| Network fault injection tests | [`haiip/tests/robustness/`](haiip/tests/robustness/) |
-| ML rigor tests | [`haiip/tests/core/test_ml_rigor.py`](haiip/tests/core/test_ml_rigor.py) |
-| Documentation honesty tests | [`haiip/tests/test_documentation_honesty.py`](haiip/tests/test_documentation_honesty.py) |
+| Industrial pipeline integration tests | [`haiip/tests/integration/test_industrial_pipeline.py`](haiip/tests/integration/test_industrial_pipeline.py) |
 | RAG hallucination test suite | [`haiip/tests/core/test_rag_hallucination.py`](haiip/tests/core/test_rag_hallucination.py) |
 | ML evaluation benchmarks | [`haiip/tests/features/test_ml_evaluation.py`](haiip/tests/features/test_ml_evaluation.py) |
 | Load tests | [`haiip/tests/load/locustfile.py`](haiip/tests/load/locustfile.py) |
 | CI/CD pipeline | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | Integrity gate | [`.github/workflows/integrity.yml`](.github/workflows/integrity.yml) |
+| Research notebook: Lightning + ONNX | [`notebooks/12_pytorch_lightning_onnx.ipynb`](notebooks/12_pytorch_lightning_onnx.ipynb) |
 
 ---
 

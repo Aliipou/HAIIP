@@ -53,17 +53,35 @@ def _reading_to_features(reading: SensorReading) -> list[float]:
     return features
 
 
-@router.post("/predict", response_model=APIResponse[PredictionResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/predict",
+    response_model=APIResponse[PredictionResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Anomaly detection — single reading",
+    description=(
+        "Run anomaly detection on a single sensor reading. "
+        "Returns label (normal/anomaly), confidence [0,1], anomaly_score [0,1], "
+        "SHAP/z-score explanation, and the active model_version for audit traceability."
+    ),
+)
 async def predict_single(
     body: SensorReading,
     current_user: CurrentUser,
     db: DB,
 ) -> APIResponse[PredictionResponse]:
     """Run anomaly detection on a single sensor reading."""
+    import time
+
+    from haiip.api.ml_metrics import record_prediction
+    from haiip.core.model_registry import get_active_version
+
     detector = _get_anomaly_detector()
     features = _reading_to_features(body)
+    model_version = get_active_version(current_user.tenant_id, "anomaly_detector")
 
+    t0 = time.perf_counter()
     result = detector.predict(features)
+    latency_s = time.perf_counter() - t0
 
     prediction = Prediction(
         tenant_id=current_user.tenant_id,
@@ -73,17 +91,30 @@ async def predict_single(
         confidence=result["confidence"],
         anomaly_score=result.get("anomaly_score"),
         input_features=json.dumps(body.model_dump()),
-        explanation=json.dumps(result.get("explanation")),
+        explanation=json.dumps({
+            **result.get("explanation", {}),
+            "model_version": model_version,
+        }),
     )
     db.add(prediction)
     await db.flush()
     await db.refresh(prediction)
+
+    record_prediction(
+        model_type="anomaly_detection",
+        tenant_id=current_user.tenant_id,
+        anomaly_score=result.get("anomaly_score"),
+        label=result["label"],
+        latency_s=latency_s,
+    )
 
     logger.info(
         "predict.single",
         machine_id=body.machine_id,
         label=result["label"],
         confidence=result["confidence"],
+        model_version=model_version,
+        latency_ms=round(latency_s * 1000, 2),
         tenant_id=current_user.tenant_id,
     )
 
