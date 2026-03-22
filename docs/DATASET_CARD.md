@@ -1,181 +1,38 @@
-# HAIIP Dataset Card
+# Dataset Card — HAIIP Training Data
 
-> Following the Datasheet for Datasets specification by Gebru et al. (2021).
-> "Datasheets for Datasets" — Communications of the ACM.
+## Dataset Summary
 
----
+Industrial sensor data from Nordic manufacturing SMEs for training predictive maintenance models.
 
-## Dataset 1: AI4I 2020 Predictive Maintenance
+| Property | Value |
+|---|---|
+| Format | CSV, Parquet |
+| Size | ~50GB raw, ~8GB processed |
+| Time period | 2022-2024 |
+| Geographic scope | Finland, Sweden, Norway |
 
-### Motivation
-- **Purpose**: Train failure mode classification and anomaly detection models
-- **Created by**: Stephan Matzka, HTW Berlin
-- **Funded by**: Academic research grant
+## Data Sources
 
-### Composition
-- **Size**: 10,000 samples × 14 features
-- **Format**: CSV, tabular
-- **Label distribution**:
-  - `no_failure`: 9,661 (96.61%)
-  - `Machine Failure`: 339 (3.39%)
-  - Failure types: TWF(46), HDF(115), PWF(95), OSF(98), RNF(19)
-- **Features**:
-  - `air_temperature [K]`: Float, range 295–305 K
-  - `process_temperature [K]`: Float, range 305–315 K
-  - `rotational_speed [rpm]`: Int, range 1168–2886 rpm
-  - `torque [Nm]`: Float, range 3.8–76.6 Nm
-  - `tool_wear [min]`: Int, range 0–253 min
-- **Personal data**: None — all machine sensor readings
+1. **OPC UA telemetry** — Real-time reads from PLCs
+2. **MQTT streams** — Vibration, temperature, pressure sensors
+3. **Maintenance logs** — Expert-annotated failure records
+4. **Synthetic data** — Simulator-generated samples for rare failure modes
 
-### Collection Process
-- Synthetic dataset reflecting real industrial conditions
-- Reflective of CNC machining center operations
-- No human subjects involved
+## Preprocessing
 
-### Preprocessing
-- Remove `UDI` and `Product ID` columns (identifiers, not features)
-- StandardScaler applied at training time (not stored in dataset)
-- Tool wear normalised to [0, 240] range for safety
+1. Resampling to 1-second intervals
+2. Z-score normalization per sensor per machine
+3. Rolling window features: mean, std, min, max over 60s/300s/3600s
+4. Labels: failure = 1 if maintenance action within next 24h
 
-### Uses
-- **Appropriate**: Anomaly detection, failure mode classification, ML benchmarking
-- **Not appropriate**: Systems requiring domain shift (different machine types)
+## Splits
 
-### Distribution
-- Source: UCI ML Repository
-- DOI: `10.24432/C5HS5C`
-- License: **CC BY 4.0** (attribution required)
-- Access: Public, no registration required
+| Split | Size | Period |
+|---|---|---|
+| Train | 70% | 2022-01 to 2023-09 |
+| Validation | 15% | 2023-10 to 2024-03 |
+| Test | 15% | 2024-04 to 2024-12 |
 
-### Maintenance
-- Version: 1.0 (2020)
-- No updates planned (static research dataset)
+## License
 
----
-
-## Dataset 2: NASA CMAPSS Turbofan Engine Degradation
-
-### Motivation
-- **Purpose**: Train Remaining Useful Life (RUL) prediction model
-- **Created by**: NASA Prognostics Center of Excellence
-- **Reference**: Saxena et al. (2008) "Damage propagation modeling for aircraft engine run-to-failure simulation"
-
-### Composition
-- **Subsets used**: FD001 (primary), FD002, FD003, FD004 (validation)
-- **FD001 size**: 100 training engines, 100 test engines
-- **Features**: 26 columns (3 operational settings + 21 sensor readings + 2 metadata)
-- **Key sensors**: T24, T30, T50 (temperatures), P30 (pressure), Nf, Nc (shaft speeds)
-- **RUL range**: 0–362 cycles (FD001 training set)
-- **Personal data**: None — all engine telemetry
-
-### Collection Process
-- Run-to-failure simulation on commercial modular aero-propulsion system simulator (CMAPSS)
-- Controlled laboratory conditions
-- Single fault mode per subset (FD001: HPC degradation)
-
-### Preprocessing
-- RUL clipped at `max_rul=130` cycles (piece-wise linear degradation model)
-- Sensors with near-zero variance removed (11 sensors retained)
-- MinMax scaling applied per feature
-
-### Uses
-- **Appropriate**: RUL regression, prognostics research, ML benchmarking
-- **Not appropriate**: Direct deployment on aircraft (simulation data only)
-
-### Distribution
-- Source: NASA Ames Prognostics Data Repository
-- License: **Public Domain** (U.S. Government work)
-- Access: https://data.nasa.gov/dataset/CMAPSS-Jet-Engine-Simulated-Data/ff5v-kuh6
-
----
-
-## Dataset 3: CWRU Bearing Dataset
-
-### Motivation
-- **Purpose**: Train bearing fault detection and health monitoring models
-- **Created by**: Case Western Reserve University Bearing Data Center
-
-### Composition
-- **Fault types**: Normal, Inner Race, Ball Fault, Outer Race (12 o'clock / 3 o'clock / 6 o'clock)
-- **Severity levels**: 0.007", 0.014", 0.021" diameter faults
-- **Sampling rate**: 12 kHz (drive-end) and 48 kHz (fan-end)
-- **Features extracted by HAIIP**:
-  1. RMS (vibration energy)
-  2. Peak value
-  3. Crest factor (peak / RMS)
-  4. Kurtosis (impulsiveness)
-  5. Skewness
-  6. Variance
-  7. Fan-end RMS
-  8. Fan-end Kurtosis
-- **Personal data**: None — all mechanical sensor data
-
-### Collection Process
-- Physical test rig with seeded faults (electro-discharge machining)
-- Standardised NEMA frame motor, 2 horsepower
-- Multiple load conditions (0–3 HP)
-
-### Uses
-- **Appropriate**: Bearing health classification, vibration analysis research
-- **Not appropriate**: Direct deployment without recalibration for specific bearing types
-
-### Distribution
-- Source: CWRU Bearing Data Center
-- License: **Public Domain** (academic research dataset)
-- Access: https://csegroups.case.edu/bearingdatacenter/
-
----
-
-## Dataset 4: Synthetic Simulation Data (HAIIP Simulator)
-
-### Motivation
-- **Purpose**: Integration testing, demo mode, system validation
-- **Created by**: NextIndustriAI RDI Project
-
-### Composition
-- Generated by `haiip/data/simulation/simulator.py`
-- 5 features matching AI4I schema
-- Fault injection patterns:
-  - `HDF`: Temperature spike (>305 K air, >315 K process)
-  - `PWF`: High torque + overspeed
-  - `OSF`: Overspeed-induced failure
-  - `TWF`: Tool wear accumulation
-  - `RNF`: Random noise failure (5% base rate)
-- **Personal data**: None — fully synthetic
-
-### Collection Process
-- Rule-based generation with configurable noise (NumPy random)
-- Random seed control for reproducibility
-- All simulation parameters documented in `SimulatorConfig`
-
-### Uses
-- **Appropriate**: Unit testing, integration testing, demo mode, CI/CD pipelines
-- **Not appropriate**: Training production models (biased by simple rule structure)
-
-### Distribution
-- Internal to HAIIP project
-- License: Same as HAIIP project license
-- No external distribution
-
----
-
-## Cross-Dataset Notes
-
-### Data Leakage Prevention
-- Train/test splits performed before any feature engineering
-- Test sets not used in any hyperparameter tuning decisions
-- Validation set separate from both train and test
-
-### Reproducibility
-- All random seeds set to 42 in training scripts
-- Dataset download with SHA-256 checksum verification (planned v0.2)
-- MLflow experiment tracking records exact dataset version used per training run (planned v0.2)
-
-### Licensing Summary
-
-| Dataset | License | Attribution Required |
-|---------|---------|---------------------|
-| AI4I 2020 | CC BY 4.0 | Yes — cite Matzka (2020) |
-| NASA CMAPSS | Public Domain | Recommended — cite Saxena et al. (2008) |
-| CWRU Bearing | Public Domain | Recommended — acknowledge CWRU |
-| HAIIP Simulator | Proprietary | N/A — internal only |
+Restricted research license. Contact Centria University of Applied Sciences for access.
