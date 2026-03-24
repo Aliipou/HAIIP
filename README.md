@@ -11,8 +11,7 @@
 [![EU AI Act](https://img.shields.io/badge/EU%20AI%20Act-Limited%20Risk-green)](docs/MODEL_CARD.md)
 [![License](https://img.shields.io/badge/license-Proprietary-lightgrey)](LICENSE)
 
-> RDI deliverable — NextIndustriAI project  
-> Centria University of Applied Sciences, Finland
+> RDI deliverable 
 
 </div>
 
@@ -99,13 +98,6 @@ HAIIP targets **Limited Risk** classification under Article 52:
 - Drift detection with automatic retraining
 - Human override at every decision point
 - Explainability layer (SHAP + plain-language summaries)
-
----
-
-## Research Context
-
-Part of the **NextIndustriAI** RDI project (European Regional Development Fund).  
-Centria University of Applied Sciences, Jakobstad, Finland.
 
 ---
 
