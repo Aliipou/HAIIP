@@ -103,4 +103,4 @@ HAIIP targets **Limited Risk** classification under Article 52:
 
 ## License
 
-Proprietary — contact the repository owner for licensing inquiries.
+MIT
