@@ -36,6 +36,9 @@ artifacts/
 *.parquet
 *.h5
 *.db
+*.db-shm
+*.db-wal
+*.sqlite
 *.sqlite3
 haiip_dev.db
 
@@ -55,10 +58,8 @@ docker-compose.override.yml
 # Notebooks (outputs only)
 notebooks/**/*.ipynb
 !notebooks/README.md
-"haiip_dev.db" 
-"haiip_dev.db-shm" 
-"haiip_dev.db-wal" 
-".pytest_cache/" 
-".coverage" 
-.claude/ 
-.claude/ 
+
+# Internal workflow / AI assistant files (not for public repos)
+CLAUDE.md
+ANTI_GARBAGE_CHECKLIST.md
+.claude/

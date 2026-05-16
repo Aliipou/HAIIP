@@ -1,10 +1,13 @@
 """Application configuration — loaded once at startup, never mutated."""
 
+import logging
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -85,4 +88,9 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Cached singleton — call everywhere instead of constructing Settings()."""
-    return Settings()
+    settings = Settings()
+    if settings.secret_key == "INSECURE_DEV_KEY_CHANGE_IN_PRODUCTION":
+        logger.warning(
+            "SECURITY: Running with insecure dev key — do not deploy to production"
+        )
+    return settings
